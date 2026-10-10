@@ -108,11 +108,11 @@ The endpoint requires `Authorization: Bearer <ADMIN_API_KEY>`, compared in const
 
 ## Google Sheets sync
 
-**Sign-in.** `GET /auth/google` redirects to Google with `access_type=offline` and `prompt=consent`, so Google returns a refresh token. `GET /auth/google/callback` encrypts the refresh token and stores it in `google_credentials`. The user signs in once.
+**Sign-in.** `GET /auth/google?key=<ADMIN_API_KEY>` redirects to Google with `access_type=offline` and `prompt=consent`, so Google returns a refresh token. `GET /auth/google/callback` encrypts the refresh token and stores it in `google_credentials`. The user signs in once. The admin key guards the start of sign-in, because otherwise anyone could link their own Google account and receive the leads. A random `state` value in an HttpOnly cookie protects the callback.
 
-**Staying signed in (R3.3).** At each sync the worker builds an `oauth2.TokenSource` from the stored refresh token. The library refreshes the access token, which lasts one hour, whenever it expires. If Google returns `invalid_grant`, the token was revoked. The worker then stops syncing, logs an error, and `GET /healthz` reports `google: reauth_required` until someone signs in again.
+**Staying signed in (R3.3).** At each sync the worker builds an `oauth2.TokenSource` from the stored refresh token. The library refreshes the access token, which lasts one hour, whenever it expires. If Google returns `invalid_grant`, the token was revoked. The worker sets `google_credentials.needs_reauth`, stops syncing, logs an error, and `GET /healthz` reports `google: reauth_required` until someone signs in again.
 
-**Scope (default).** `drive.file`, with the app creating the spreadsheet itself on first sign-in. This scope only reaches files the app created. Claude's understanding is that Google treats it as non-sensitive, while the full `spreadsheets` scope needs app verification. Confirm this in the Google Cloud console during setup.
+**Scope (default).** `openid email` to learn which account linked, plus `drive.file`, with the app creating the spreadsheet itself on first sign-in. This scope only reaches files the app created. Claude's understanding is that Google treats it as non-sensitive, while the full `spreadsheets` scope needs app verification. Confirm this in the Google Cloud console during setup.
 
 **Token expiry trap.** While the OAuth consent screen is in "Testing" status, Google expires refresh tokens after 7 days. Set it to "In production" for anything longer than a demo.
 

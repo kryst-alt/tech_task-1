@@ -13,6 +13,7 @@ import (
 
 	"leadmgr/internal/api"
 	"leadmgr/internal/config"
+	"leadmgr/internal/sheets"
 	"leadmgr/internal/store"
 )
 
@@ -38,7 +39,15 @@ func run() error {
 	}
 	defer pool.Close()
 
-	app := api.New(api.Deps{Pool: pool, SigningSecret: cfg.SigningSecret, AdminAPIKey: cfg.AdminAPIKey})
+	google := &sheets.Google{
+		Pool:  pool,
+		OAuth: sheets.OAuthConfig(cfg.GoogleClientID, cfg.GoogleClientSecret, cfg.GoogleRedirectURL),
+		Key:   cfg.TokenKey,
+	}
+	worker := &sheets.Worker{Pool: pool, SheetFor: google.Sheet, Interval: 2 * time.Second}
+	go worker.Run(ctx)
+
+	app := api.New(api.Deps{Pool: pool, SigningSecret: cfg.SigningSecret, AdminAPIKey: cfg.AdminAPIKey, Google: google})
 
 	errc := make(chan error, 1)
 	go func() {

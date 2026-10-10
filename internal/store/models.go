@@ -64,6 +64,7 @@ type GoogleCredential struct {
 	RefreshTokenEnc []byte
 	SpreadsheetID   pgtype.Text
 	UpdatedAt       time.Time
+	NeedsReauth     bool
 }
 
 type Lead struct {

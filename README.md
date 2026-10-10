@@ -12,7 +12,7 @@ Written in Go with Fiber and Postgres. Design notes are in [docs/STACK.md](docs/
 | Tests for invalid signature, duplicates and email update | Done |
 | Deal stages in the database | Done |
 | Endpoint to change a lead's stage | Done |
-| Google sign-in and Sheets sync | Not started |
+| Google sign-in and Sheets sync | Done |
 
 ## Requirements
 
@@ -33,7 +33,7 @@ systemctl --user enable --now podman.socket   # the tests reach Podman through t
 cp .env.example .env
 ```
 
-Fill in `.env`. `LEAD_SIGNING_SECRET`, `ADMIN_API_KEY` and `TOKEN_ENCRYPTION_KEY` have the commands to generate them in the comments. Until Google sync is built, any non-empty value works for the `GOOGLE_*` settings.
+Fill in `.env`. `LEAD_SIGNING_SECRET`, `ADMIN_API_KEY` and `TOKEN_ENCRYPTION_KEY` have the commands to generate them in the comments. For the `GOOGLE_*` settings, see [Google Sheets setup](#google-sheets-setup).
 
 ```sh
 make db-up    # Postgres on localhost:5432
@@ -50,6 +50,23 @@ The first send returns `201 {"result":"create"}`. Sending it again returns `200 
 
 Stop the server with Ctrl+C, then `make db-down`. Data stays in a volume. `podman compose down -v` deletes it.
 
+## Google Sheets setup
+
+Done once per deployment.
+
+1. In the [Google Cloud console](https://console.cloud.google.com/), create a project and enable the **Google Sheets API** and **Google Drive API**.
+2. Under **OAuth consent screen**, choose External and add the Google account that should own the sheet under **Test users**.
+3. Create **Credentials > OAuth client ID > Web application** with the redirect URI `http://localhost:8080/auth/google/callback`.
+4. Copy the client ID and secret into `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` in `.env`. The downloaded `client_secret_*.json` is git-ignored. Don't commit it.
+5. Start the server and open `http://localhost:8080/auth/google?key=<ADMIN_API_KEY>` in a browser on the same machine. Sign in with the test user account.
+
+The app creates a spreadsheet called **Leads** in that account's Drive and shows its link. Leads already in the database sync within a few seconds. `GET /healthz` reports `"google":"ok"`.
+
+The server stores the refresh token encrypted and renews the hourly access token by itself, so nobody signs in again after a restart or the next day. Two cases do need a new sign-in:
+
+- Google revokes access, for example after a password change. Sync pauses, and `/healthz` reports `"google":"reauth_required"`. Open the sign-in link again.
+- The consent screen is still in **Testing** status. Google expires refresh tokens after 7 days in that state. Set it to **In production** for anything longer than a demo.
+
 ## Tests
 
 ```sh
@@ -64,6 +81,7 @@ The tests start their own Postgres container, so `make db-up` is not needed. The
 | `TestDuplicateSubmissionCreatesOneRecord` | Sending the same lead twice stores one row |
 | `TestLeadWithExistingEmailUpdatesRecord` | A new ID with a known email updates that lead |
 | `TestUpsertLosingInsertRaceBecomesUpdate` | Two simultaneous first submissions still store one row |
+| `internal/sheets` tests | The worker writes each change once, retries with backoff, waits while unlinked, and pauses on a revoked token |
 
 ## API
 
@@ -118,9 +136,13 @@ Allowed moves: `new` to `qualified`, `qualified` to `proposal`, `proposal` to `w
 | 409 | The move is not allowed from the current stage |
 | 422 | Unknown stage or body is not JSON |
 
+### `GET /auth/google?key=<ADMIN_API_KEY>`
+
+Starts Google sign-in. See [Google Sheets setup](#google-sheets-setup). The key goes in the URL because a browser link can't send an Authorization header.
+
 ### `GET /healthz`
 
-Returns `200 {"database":"ok"}`, or 503 when Postgres is unreachable.
+Returns `200 {"database":"ok","google":"ok"}`. `google` is `not_linked` before sign-in and `reauth_required` after Google revokes access. Returns 503 when Postgres is unreachable.
 
 ## Configuration
 
@@ -142,6 +164,7 @@ cmd/server/          entry point
 internal/api/        HTTP handlers and signature check
 internal/lead/       lead rules: upsert decision, stage transitions (no I/O)
 internal/store/      Postgres access, migrations, the upsert transaction
+internal/sheets/     Google sign-in, token encryption, sync worker
 internal/testdb/     Postgres container for tests
 db/migrations/       schema (goose), embedded in the binary
 db/queries/          SQL for sqlc. Run `make generate` after editing.

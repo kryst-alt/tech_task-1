@@ -27,7 +27,7 @@ var (
 
 func newTestApp(t *testing.T) (*fiber.App, *pgxpool.Pool) {
 	pool := testdb.Pool(t)
-	app := New(Deps{Pool: pool, SigningSecret: testSecret, Now: func() time.Time { return testNow }})
+	app := New(Deps{Pool: pool, SigningSecret: testSecret, AdminAPIKey: []byte(testAdminKey), Now: func() time.Time { return testNow }})
 	return app, pool
 }
 

@@ -18,3 +18,9 @@ WHERE id = $1;
 -- name: MarkLeadForSync :exec
 INSERT INTO lead_sync (lead_id) VALUES ($1)
 ON CONFLICT (lead_id) DO UPDATE SET attempts = 0, next_attempt_at = now(), last_error = NULL;
+
+-- name: GetLeadStageForUpdate :one
+SELECT id, stage FROM leads WHERE external_id = $1 FOR UPDATE;
+
+-- name: SetLeadStage :exec
+UPDATE leads SET stage = $2, version = version + 1, updated_at = now() WHERE id = $1;

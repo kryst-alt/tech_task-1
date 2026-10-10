@@ -38,7 +38,7 @@ func run() error {
 	}
 	defer pool.Close()
 
-	app := api.New(api.Deps{Pool: pool, SigningSecret: cfg.SigningSecret})
+	app := api.New(api.Deps{Pool: pool, SigningSecret: cfg.SigningSecret, AdminAPIKey: cfg.AdminAPIKey})
 
 	errc := make(chan error, 1)
 	go func() {

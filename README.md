@@ -11,7 +11,7 @@ Written in Go with Fiber and Postgres. Design notes are in [docs/STACK.md](docs/
 | Signed lead endpoint with duplicate and email handling | Done |
 | Tests for invalid signature, duplicates and email update | Done |
 | Deal stages in the database | Done |
-| Endpoint to change a lead's stage | Not started |
+| Endpoint to change a lead's stage | Done |
 | Google sign-in and Sheets sync | Not started |
 
 ## Requirements
@@ -33,7 +33,7 @@ systemctl --user enable --now podman.socket   # the tests reach Podman through t
 cp .env.example .env
 ```
 
-Fill in `.env`. `LEAD_SIGNING_SECRET` and `TOKEN_ENCRYPTION_KEY` have the commands to generate them in the comments. Until Google sync is built, any non-empty value works for the `GOOGLE_*` settings.
+Fill in `.env`. `LEAD_SIGNING_SECRET`, `ADMIN_API_KEY` and `TOKEN_ENCRYPTION_KEY` have the commands to generate them in the comments. Until Google sync is built, any non-empty value works for the `GOOGLE_*` settings.
 
 ```sh
 make db-up    # Postgres on localhost:5432
@@ -98,6 +98,26 @@ sig=$(printf '%s' "$ts.$body" | openssl dgst -sha256 -hmac "$secret" -hex | awk 
 
 Email matching ignores case. An incoming lead never changes the deal stage.
 
+### `PATCH /v1/leads/{id}/stage`
+
+Moves a lead to another deal stage. `{id}` is the partner's lead ID. Needs `Authorization: Bearer <ADMIN_API_KEY>`.
+
+```sh
+curl -X PATCH localhost:8080/v1/leads/p-1/stage \
+  -H "Authorization: Bearer $(grep ^ADMIN_API_KEY= .env | cut -d= -f2-)" \
+  -d '{"stage":"qualified"}'
+```
+
+Allowed moves: `new` to `qualified`, `qualified` to `proposal`, `proposal` to `won`, and any open stage to `lost`. `won` and `lost` are final.
+
+| Status | When |
+|---|---|
+| 200 `{"stage":"qualified"}` | Moved |
+| 401 | Token missing or wrong |
+| 404 | No lead with that ID |
+| 409 | The move is not allowed from the current stage |
+| 422 | Unknown stage or body is not JSON |
+
 ### `GET /healthz`
 
 Returns `200 {"database":"ok"}`, or 503 when Postgres is unreachable.
@@ -109,6 +129,7 @@ Returns `200 {"database":"ok"}`, or 503 when Postgres is unreachable.
 | `PORT` | HTTP port, default 8080 |
 | `DATABASE_URL` | Postgres connection string |
 | `LEAD_SIGNING_SECRET` | Shared HMAC secret, at least 32 characters |
+| `ADMIN_API_KEY` | Bearer token for admin endpoints, at least 32 characters |
 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REDIRECT_URL` | Google OAuth client |
 | `TOKEN_ENCRYPTION_KEY` | 32 bytes, base64, encrypts the stored Google refresh token |
 

@@ -10,6 +10,7 @@ import (
 type Deps struct {
 	Pool          *pgxpool.Pool
 	SigningSecret []byte
+	AdminAPIKey   []byte
 	Now           func() time.Time
 }
 
@@ -19,6 +20,7 @@ func New(d Deps) *fiber.App {
 	}
 	app := fiber.New()
 	app.Post("/v1/leads", d.postLead)
+	app.Patch("/v1/leads/:id/stage", d.requireAdmin, d.patchStage)
 	app.Get("/healthz", func(c fiber.Ctx) error {
 		if err := d.Pool.Ping(c.Context()); err != nil {
 			return c.Status(fiber.StatusServiceUnavailable).JSON(fiber.Map{"database": "down"})

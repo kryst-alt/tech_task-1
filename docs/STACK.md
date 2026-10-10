@@ -102,7 +102,9 @@ The allowed moves live in one transition table in the `lead` package. Handlers n
 | won | nothing (final) |
 | lost | nothing (final) |
 
-`PATCH /v1/leads/{id}/stage` with `{"stage": "qualified"}` returns 200, or 409 for a move the table doesn't allow. **Default.** The brief doesn't say how stages change. This endpoint is the smallest way to make the stage field useful.
+`PATCH /v1/leads/{id}/stage` with `{"stage": "qualified"}` returns 200, or 409 for a move the table doesn't allow. `{id}` is the partner's lead ID, the one shown in the sheet. The change bumps `version`, so the sheet picks it up. **Default.** The brief doesn't say how stages change. This endpoint is the smallest way to make the stage field useful.
+
+The endpoint requires `Authorization: Bearer <ADMIN_API_KEY>`, compared in constant time. **Default.** The partner signature only covers lead intake, and an unauthenticated write endpoint would let anyone move deals.
 
 ## Google Sheets sync
 
@@ -147,4 +149,4 @@ The endpoint tests drive the real Fiber app with `app.Test` against Postgres in 
 
 ## Configuration
 
-`DATABASE_URL`, `LEAD_SIGNING_SECRET`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REDIRECT_URL`, `TOKEN_ENCRYPTION_KEY` (32 bytes, base64), `PORT`. The app fails at startup if any is missing or malformed.
+`DATABASE_URL`, `LEAD_SIGNING_SECRET`, `ADMIN_API_KEY`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REDIRECT_URL`, `TOKEN_ENCRYPTION_KEY` (32 bytes, base64), `PORT`. The app fails at startup if any is missing or malformed.

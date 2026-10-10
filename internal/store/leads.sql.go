@@ -55,6 +55,22 @@ func (q *Queries) GetLeadByExternalIDForUpdate(ctx context.Context, externalID s
 	return i, err
 }
 
+const getLeadStageForUpdate = `-- name: GetLeadStageForUpdate :one
+SELECT id, stage FROM leads WHERE external_id = $1 FOR UPDATE
+`
+
+type GetLeadStageForUpdateRow struct {
+	ID    uuid.UUID
+	Stage LeadStage
+}
+
+func (q *Queries) GetLeadStageForUpdate(ctx context.Context, externalID string) (GetLeadStageForUpdateRow, error) {
+	row := q.db.QueryRow(ctx, getLeadStageForUpdate, externalID)
+	var i GetLeadStageForUpdateRow
+	err := row.Scan(&i.ID, &i.Stage)
+	return i, err
+}
+
 const insertLead = `-- name: InsertLead :one
 INSERT INTO leads (external_id, email, name, company, source)
 VALUES ($1, $2, $3, $4, $5)
@@ -100,6 +116,20 @@ ON CONFLICT (lead_id) DO UPDATE SET attempts = 0, next_attempt_at = now(), last_
 
 func (q *Queries) MarkLeadForSync(ctx context.Context, leadID uuid.UUID) error {
 	_, err := q.db.Exec(ctx, markLeadForSync, leadID)
+	return err
+}
+
+const setLeadStage = `-- name: SetLeadStage :exec
+UPDATE leads SET stage = $2, version = version + 1, updated_at = now() WHERE id = $1
+`
+
+type SetLeadStageParams struct {
+	ID    uuid.UUID
+	Stage LeadStage
+}
+
+func (q *Queries) SetLeadStage(ctx context.Context, arg SetLeadStageParams) error {
+	_, err := q.db.Exec(ctx, setLeadStage, arg.ID, arg.Stage)
 	return err
 }
 

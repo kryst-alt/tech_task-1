@@ -11,6 +11,7 @@ type Config struct {
 	Port               int
 	DatabaseURL        string
 	SigningSecret      []byte
+	AdminAPIKey        []byte
 	GoogleClientID     string
 	GoogleClientSecret string
 	GoogleRedirectURL  string
@@ -32,6 +33,7 @@ func Load(getenv func(string) string) (Config, error) {
 	c := Config{
 		DatabaseURL:        required("DATABASE_URL"),
 		SigningSecret:      []byte(required("LEAD_SIGNING_SECRET")),
+		AdminAPIKey:        []byte(required("ADMIN_API_KEY")),
 		GoogleClientID:     required("GOOGLE_CLIENT_ID"),
 		GoogleClientSecret: required("GOOGLE_CLIENT_SECRET"),
 		GoogleRedirectURL:  required("GOOGLE_REDIRECT_URL"),
@@ -48,6 +50,9 @@ func Load(getenv func(string) string) (Config, error) {
 
 	if len(c.SigningSecret) > 0 && len(c.SigningSecret) < 32 {
 		errs = append(errs, errors.New("LEAD_SIGNING_SECRET must be at least 32 characters"))
+	}
+	if len(c.AdminAPIKey) > 0 && len(c.AdminAPIKey) < 32 {
+		errs = append(errs, errors.New("ADMIN_API_KEY must be at least 32 characters"))
 	}
 
 	if k := required("TOKEN_ENCRYPTION_KEY"); k != "" {

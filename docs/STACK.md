@@ -79,7 +79,7 @@ The worker syncs a lead whenever `leads.version > lead_sync.synced_version`. It 
 
 `POST /v1/leads`
 
-1. **Verify the signature (default scheme).** Headers `X-Timestamp` (Unix seconds) and `X-Signature: sha256=<hex>`, where the hex is HMAC-SHA256 with the shared secret over `timestamp + "." + raw body`. Compare with `hmac.Equal`. Return 401 when a header is missing, the signature doesn't match, or the timestamp is more than 5 minutes off. This runs before the JSON is parsed.
+1. **Verify the signature (default scheme).** Headers `X-Timestamp` (Unix seconds) and `X-Signature: sha256=<hex>`, where the hex is HMAC-SHA256 with the shared secret over `timestamp + "." + raw body`. "Raw" means the bytes as sent: a gzipped request is verified compressed. Compare with `hmac.Equal`. Return 401 when a header is missing, the signature doesn't match, or the timestamp is more than 5 minutes off. This runs before the JSON is parsed.
 2. **Parse and validate.** All five fields are required. The email must parse with `net/mail`. Return 422 on bad input.
 3. **Upsert in one transaction (default matching rule).**
    - Look up rows by `external_id` and by `email`.
@@ -118,7 +118,9 @@ The endpoint requires `Authorization: Bearer <ADMIN_API_KEY>`, compared in const
 
 **Sheet layout (default).** One tab named `Leads` with columns `Lead ID, Name, Email, Company, Source, Stage, Created, Updated`. The worker reads column A to find the lead's row. It updates that row when it exists and appends one when it doesn't. Running the same sync twice leaves the same sheet.
 
-**Worker loop.** Every 2 seconds, claim up to 50 due rows with `FOR UPDATE SKIP LOCKED`, sync each, and set `synced_version`. On failure the worker increments `attempts`, records `last_error`, and pushes `next_attempt_at` back exponentially, capped at 15 minutes.
+**Worker loop.** Every 2 seconds, read up to 50 due rows, sync each, and raise `synced_version` to the version it wrote. No transaction is held during Google calls, so a slow or hung Google API never blocks lead intake. A lead changed during the call keeps a higher `version` and stays due. On failure the worker increments `attempts`, records `last_error`, and pushes `next_attempt_at` back exponentially, capped at 15 minutes (the exponent stops at 10, so the interval can't overflow). One server runs one worker. Two instances could write the same row twice, which is harmless because the write is an upsert.
+
+**Relinking.** Signing in again with the same account keeps the sheet. Signing in with a different account clears the stored sheet ID, because `drive.file` can't reach another account's file. The next sync creates a new sheet and requeues every lead to fill it.
 
 ## Code layout
 

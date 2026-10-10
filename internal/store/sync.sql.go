@@ -11,16 +11,15 @@ import (
 	"github.com/google/uuid"
 )
 
-const claimDueSyncs = `-- name: ClaimDueSyncs :many
+const dueSyncs = `-- name: DueSyncs :many
 SELECT l.id, l.external_id, l.email, l.name, l.company, l.source, l.stage, l.version, l.created_at, l.updated_at FROM lead_sync s JOIN leads l ON l.id = s.lead_id
 WHERE l.version > s.synced_version AND s.next_attempt_at <= now()
 ORDER BY s.next_attempt_at
 LIMIT $1
-FOR UPDATE OF s SKIP LOCKED
 `
 
-func (q *Queries) ClaimDueSyncs(ctx context.Context, limit int32) ([]Lead, error) {
-	rows, err := q.db.Query(ctx, claimDueSyncs, limit)
+func (q *Queries) DueSyncs(ctx context.Context, limit int32) ([]Lead, error) {
+	rows, err := q.db.Query(ctx, dueSyncs, limit)
 	if err != nil {
 		return nil, err
 	}
@@ -68,20 +67,23 @@ func (q *Queries) GetGoogleCredentials(ctx context.Context) (GoogleCredential, e
 	return i, err
 }
 
-const markGoogleNeedsReauth = `-- name: MarkGoogleNeedsReauth :exec
-UPDATE google_credentials SET needs_reauth = true WHERE id = 1
+const markGoogleNeedsReauth = `-- name: MarkGoogleNeedsReauth :execrows
+UPDATE google_credentials SET needs_reauth = true WHERE id = 1 AND NOT needs_reauth
 `
 
-func (q *Queries) MarkGoogleNeedsReauth(ctx context.Context) error {
-	_, err := q.db.Exec(ctx, markGoogleNeedsReauth)
-	return err
+func (q *Queries) MarkGoogleNeedsReauth(ctx context.Context) (int64, error) {
+	result, err := q.db.Exec(ctx, markGoogleNeedsReauth)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }
 
 const markSyncFailed = `-- name: MarkSyncFailed :exec
 UPDATE lead_sync
 SET attempts = attempts + 1,
     last_error = $1::text,
-    next_attempt_at = now() + least(interval '15 minutes', make_interval(secs => power(2, attempts + 1)))
+    next_attempt_at = now() + least(interval '15 minutes', make_interval(secs => power(2, least(attempts + 1, 10))))
 WHERE lead_id = $2
 `
 
@@ -96,7 +98,7 @@ func (q *Queries) MarkSyncFailed(ctx context.Context, arg MarkSyncFailedParams) 
 }
 
 const markSynced = `-- name: MarkSynced :exec
-UPDATE lead_sync SET synced_version = $2, attempts = 0, last_error = NULL WHERE lead_id = $1
+UPDATE lead_sync SET synced_version = greatest(synced_version, $2), attempts = 0, last_error = NULL WHERE lead_id = $1
 `
 
 type MarkSyncedParams struct {
@@ -110,9 +112,16 @@ func (q *Queries) MarkSynced(ctx context.Context, arg MarkSyncedParams) error {
 }
 
 const saveGoogleCredentials = `-- name: SaveGoogleCredentials :exec
+WITH reset AS (
+  UPDATE lead_sync SET synced_version = 0, attempts = 0, next_attempt_at = now(), last_error = NULL
+  WHERE EXISTS (SELECT 1 FROM google_credentials WHERE id = 1 AND account_email <> $1)
+)
 INSERT INTO google_credentials (account_email, refresh_token_enc) VALUES ($1, $2)
 ON CONFLICT (id) DO UPDATE
-SET account_email = EXCLUDED.account_email, refresh_token_enc = EXCLUDED.refresh_token_enc,
+SET refresh_token_enc = EXCLUDED.refresh_token_enc,
+    spreadsheet_id = CASE WHEN google_credentials.account_email = EXCLUDED.account_email
+                          THEN google_credentials.spreadsheet_id END,
+    account_email = EXCLUDED.account_email,
     needs_reauth = false, updated_at = now()
 `
 
@@ -121,6 +130,8 @@ type SaveGoogleCredentialsParams struct {
 	RefreshTokenEnc []byte
 }
 
+// A different account can't open the old sheet under drive.file, so it gets
+// a new sheet and every lead is queued to fill it.
 func (q *Queries) SaveGoogleCredentials(ctx context.Context, arg SaveGoogleCredentialsParams) error {
 	_, err := q.db.Exec(ctx, saveGoogleCredentials, arg.AccountEmail, arg.RefreshTokenEnc)
 	return err

@@ -1,6 +1,8 @@
 package api
 
 import (
+	"bytes"
+	"compress/gzip"
 	"context"
 	"crypto/hmac"
 	"crypto/sha256"
@@ -210,5 +212,28 @@ func TestSavedLeadIsQueuedForSheetsSync(t *testing.T) {
 		"SELECT count(*) FROM leads l JOIN lead_sync s ON s.lead_id = l.id WHERE l.version > s.synced_version").Scan(&pending)
 	if pending != 1 {
 		t.Fatalf("leads pending sync = %d, want 1", pending)
+	}
+}
+
+// The partner signs the bytes it sends, so a gzipped body must be verified compressed.
+func TestGzippedLeadIsVerifiedOverRawBytes(t *testing.T) {
+	app, pool := newTestApp(t)
+	var buf bytes.Buffer
+	zw := gzip.NewWriter(&buf)
+	zw.Write([]byte(leadJSON("p-1", "Ada", "ada@example.com")))
+	zw.Close()
+
+	ts := strconv.FormatInt(testNow.Unix(), 10)
+	req := httptest.NewRequest("POST", "/v1/leads", bytes.NewReader(buf.Bytes()))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Content-Encoding", "gzip")
+	req.Header.Set("X-Timestamp", ts)
+	req.Header.Set("X-Signature", sign(testSecret, ts, buf.String()))
+	resp, err := app.Test(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != 201 || countLeads(t, pool) != 1 {
+		t.Fatalf("status = %d, leads = %d, want 201 and 1", resp.StatusCode, countLeads(t, pool))
 	}
 }

@@ -15,7 +15,7 @@ const stateCookie = "oauth_state"
 // startGoogleSignIn takes the admin key as a query parameter because a browser
 // link cannot send an Authorization header.
 func (d Deps) startGoogleSignIn(c fiber.Ctx) error {
-	if len(d.AdminAPIKey) == 0 || subtle.ConstantTimeCompare([]byte(c.Query("key")), d.AdminAPIKey) != 1 {
+	if !d.adminKeyOK(c.Query("key")) {
 		return c.Status(fiber.StatusUnauthorized).SendString("missing or wrong ?key= (use ADMIN_API_KEY)")
 	}
 	slog.Info("google sign-in started")

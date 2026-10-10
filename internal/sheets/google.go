@@ -78,12 +78,14 @@ func (g *Google) Link(ctx context.Context, code string) (email, sheetURL string,
 	return email, "https://docs.google.com/spreadsheets/d/" + s.id, nil
 }
 
-// Status is "not_linked", "reauth_required" or "ok".
+// Status is "not_linked", "reauth_required", "ok", or "unknown" when the database can't say.
 func (g *Google) Status(ctx context.Context) string {
 	creds, err := store.New(g.Pool).GetGoogleCredentials(ctx)
 	switch {
-	case err != nil:
+	case errors.Is(err, pgx.ErrNoRows):
 		return "not_linked"
+	case err != nil:
+		return "unknown"
 	case creds.NeedsReauth:
 		return "reauth_required"
 	}
@@ -138,16 +140,22 @@ func (g *Google) sheet(ctx context.Context) (*googleSheet, error) {
 }
 
 func createSpreadsheet(ctx context.Context, svc *gsheets.Service) (string, error) {
+	cells := make([]*gsheets.CellData, len(header))
+	for i, h := range header {
+		title := h.(string)
+		cells[i] = &gsheets.CellData{UserEnteredValue: &gsheets.ExtendedValue{StringValue: &title}}
+	}
 	ss, err := svc.Spreadsheets.Create(&gsheets.Spreadsheet{
 		Properties: &gsheets.SpreadsheetProperties{Title: "Leads"},
-		Sheets:     []*gsheets.Sheet{{Properties: &gsheets.SheetProperties{Title: "Leads"}}},
+		Sheets: []*gsheets.Sheet{{
+			Properties: &gsheets.SheetProperties{Title: "Leads"},
+			Data:       []*gsheets.GridData{{RowData: []*gsheets.RowData{{Values: cells}}}},
+		}},
 	}).Context(ctx).Do()
 	if err != nil {
 		return "", err
 	}
-	_, err = svc.Spreadsheets.Values.Update(ss.SpreadsheetId, "Leads!A1:H1",
-		&gsheets.ValueRange{Values: [][]any{header}}).ValueInputOption("RAW").Context(ctx).Do()
-	return ss.SpreadsheetId, err
+	return ss.SpreadsheetId, nil
 }
 
 type googleSheet struct {

@@ -84,7 +84,7 @@ var actionStatus = map[lead.Action]int{
 }
 
 func (d Deps) postLead(c fiber.Ctx) error {
-	if err := verifySignature(d.SigningSecret, c.Get("X-Timestamp"), c.Get("X-Signature"), c.Body(), d.Now()); err != nil {
+	if err := verifySignature(d.SigningSecret, c.Get("X-Timestamp"), c.Get("X-Signature"), c.BodyRaw(), d.Now()); err != nil {
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": err.Error()})
 	}
 	in, err := parseLead(c.Body())

@@ -12,9 +12,13 @@ import (
 	"leadmgr/internal/store"
 )
 
+func (d Deps) adminKeyOK(key string) bool {
+	return len(d.AdminAPIKey) > 0 && subtle.ConstantTimeCompare([]byte(key), d.AdminAPIKey) == 1
+}
+
 func (d Deps) requireAdmin(c fiber.Ctx) error {
 	token, ok := strings.CutPrefix(c.Get("Authorization"), "Bearer ")
-	if !ok || subtle.ConstantTimeCompare([]byte(token), d.AdminAPIKey) != 1 {
+	if !ok || !d.adminKeyOK(token) {
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "invalid admin token"})
 	}
 	return c.Next()

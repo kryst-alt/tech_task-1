@@ -11,8 +11,6 @@ import (
 	"leadmgr/internal/store"
 )
 
-const batchSize = 50
-
 var (
 	ErrNotLinked      = errors.New("google account not linked")
 	ErrReauthRequired = errors.New("google sign-in expired or revoked")
@@ -25,9 +23,10 @@ type Sheet interface {
 
 // Worker copies leads whose version is ahead of what the sheet has.
 type Worker struct {
-	Pool     *pgxpool.Pool
-	SheetFor func(context.Context) (Sheet, error)
-	Interval time.Duration
+	Pool      *pgxpool.Pool
+	SheetFor  func(context.Context) (Sheet, error)
+	Interval  time.Duration
+	BatchSize int32 // defaults to 50
 }
 
 func (w *Worker) Run(ctx context.Context) {
@@ -61,7 +60,11 @@ func (w *Worker) SyncDue(ctx context.Context) (int, error) {
 		return 0, err
 	}
 
-	due, err := q.DueSyncs(ctx, batchSize)
+	batch := w.BatchSize
+	if batch == 0 {
+		batch = 50
+	}
+	due, err := q.DueSyncs(ctx, batch)
 	if err != nil {
 		return 0, err
 	}

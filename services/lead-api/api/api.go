@@ -13,13 +13,18 @@ type Deps struct {
 	Pool          *pgxpool.Pool
 	SigningSecret []byte
 	AdminAPIKey   []byte
-	Google        *sheets.Google
-	Now           func() time.Time
+	// SignatureTolerance is how far X-Timestamp may be from now. Defaults to 5 minutes.
+	SignatureTolerance time.Duration
+	Google             *sheets.Google
+	Now                func() time.Time
 }
 
 func New(d Deps) *fiber.App {
 	if d.Now == nil {
 		d.Now = time.Now
+	}
+	if d.SignatureTolerance == 0 {
+		d.SignatureTolerance = 5 * time.Minute
 	}
 	app := fiber.New()
 	app.Post("/v1/leads", d.postLead)

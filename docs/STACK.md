@@ -4,24 +4,26 @@ Status: proposed on 2026-10-10. Language, framework and database were the user's
 
 ## Architecture
 
-One Go service in one repository, built into one binary. The binary runs the HTTP API and the Google Sheets sync worker as two goroutines that share a Postgres pool.
+Two services in one repository and one Go module, sharing one Postgres database.
 
 ```
-partner ──signed POST──▶ API (Fiber) ──tx──▶ Postgres: leads, lead_sync
-                                                   │
-                         sync worker ◀──polls──────┘──▶ Google Sheets API
+partner ──signed POST──▶ lead-api ──tx──▶ Postgres: leads, lead_sync, google_credentials
+                                                   ▲
+                         sheets-sync ──polls───────┘──▶ Google Sheets API
 ```
 
-### Why not microservices
-
-| | Single service + worker | Microservices (API, sync, auth) |
+| Service | Owns | Entry point |
 |---|---|---|
-| Moving parts | 1 binary, 1 database | 3 deployables, a broker or service-to-service HTTP, shared auth state |
-| Google outage while a lead arrives | Lead is saved and the API returns 2xx. The worker retries later. | Same outcome, with more parts in between |
-| Testing R4 | `go test` against one real Postgres | Several services to start for each test |
-| Scaling needs here | One webhook endpoint at partner traffic | Not needed |
+| lead-api | Lead intake, stage changes, Google sign-in, `/healthz` | `services/lead-api` |
+| sheets-sync | Writing leads to the sheet, retries, re-auth flag | `services/sheets-sync` |
 
-The only isolation this system needs is between "accept the lead" and "talk to Google". The worker gives that. If the worker ever needs its own process, add `cmd/worker` that calls the same package. Nothing in the data model changes.
+They never call each other. `lead_sync` is the hand-off: lead-api bumps a lead's `version` and queues it, and sheets-sync writes whatever is ahead of the sheet. Either service can be down without losing work. A lead saved while sheets-sync is stopped syncs when it starts.
+
+Both apply migrations at startup under a Postgres advisory lock, so start order doesn't matter.
+
+### Why this split and not more
+
+The isolation the system needs is between "accept the lead" and "talk to Google". Two services give that, plus separate deploys and logs. Splitting further would put a network hop or a broker inside each lead request for no gain at this size. Shared libraries live in `internal/`, so each service stays a thin `main.go`.
 
 ## Libraries
 
@@ -34,9 +36,9 @@ The only isolation this system needs is between "accept the lead" and "talk to G
 | Migrations | `pressly/goose`, SQL files under `db/migrations` |
 | Google | `golang.org/x/oauth2`, `google.golang.org/api/sheets/v4` |
 | Logging | `log/slog` |
-| Config | Environment variables, parsed and validated once at startup |
+| Config | Environment variables per service (`config.LoadAPI`, `config.LoadSync`), optional ones with defaults |
 | Tests | `testing`, `testcontainers-go` (Postgres module), Fiber `app.Test` |
-| Local run | Docker Compose: `postgres:17` plus the app |
+| Local run | Compose: `postgres:17`, lead-api, sheets-sync. Podman or Docker, detected by the Makefile. |
 
 ## Data model
 
@@ -125,14 +127,14 @@ The endpoint requires `Authorization: Bearer <ADMIN_API_KEY>`, compared in const
 ## Code layout
 
 ```
-cmd/server/main.go        loads config, opens the pool, starts the API and the worker
-internal/config/          environment parsing and validation
+services/lead-api/        main.go, Dockerfile, api/ (Fiber handlers, signature check)
+services/sheets-sync/     main.go, Dockerfile
+internal/config/          per-service environment parsing and validation
 internal/lead/            Lead type, Stage transition table, upsert decision (pure Go, no I/O)
-internal/store/           pool and migrations, sqlc queries, the upsert transaction
-internal/api/             Fiber app and every HTTP handler, including the signature check
-internal/sheets/          OAuth token storage and the sync worker
+internal/store/           pool and migrations, sqlc queries, the upsert and stage transactions
+internal/sheets/          OAuth token storage, Google client, sync worker
 internal/testdb/          one Postgres container per test binary
-db/migrations/            goose SQL, embedded into the binary and applied at startup
+db/migrations/            goose SQL, embedded into both binaries
 db/queries/               sqlc SQL
 ```
 
@@ -151,4 +153,4 @@ The endpoint tests drive the real Fiber app with `app.Test` against Postgres in 
 
 ## Configuration
 
-`DATABASE_URL`, `LEAD_SIGNING_SECRET`, `ADMIN_API_KEY`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REDIRECT_URL`, `TOKEN_ENCRYPTION_KEY` (32 bytes, base64), `PORT`. The app fails at startup if any is missing or malformed.
+See the table in the README. Required: `DATABASE_URL`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `TOKEN_ENCRYPTION_KEY`, plus `LEAD_SIGNING_SECRET` and `ADMIN_API_KEY` for lead-api. `scripts/setup.sh` (`make setup`) generates the secrets and imports the Google client JSON without overwriting existing values.

@@ -17,17 +17,15 @@ import (
 	"leadmgr/internal/store"
 )
 
-const maxClockSkew = 5 * time.Minute
-
 var errBadSignature = errors.New("invalid signature")
 
 // verifySignature checks X-Signature = "sha256=" + hex(HMAC-SHA256(secret, timestamp + "." + body)).
-func verifySignature(secret []byte, timestamp, signature string, body []byte, now time.Time) error {
+func verifySignature(secret []byte, timestamp, signature string, body []byte, now time.Time, tolerance time.Duration) error {
 	ts, err := strconv.ParseInt(timestamp, 10, 64)
 	if err != nil {
 		return errBadSignature
 	}
-	if d := now.Sub(time.Unix(ts, 0)); d > maxClockSkew || d < -maxClockSkew {
+	if d := now.Sub(time.Unix(ts, 0)); d > tolerance || d < -tolerance {
 		return errBadSignature
 	}
 	got, err := hex.DecodeString(strings.TrimPrefix(signature, "sha256="))
@@ -84,7 +82,7 @@ var actionStatus = map[lead.Action]int{
 }
 
 func (d Deps) postLead(c fiber.Ctx) error {
-	if err := verifySignature(d.SigningSecret, c.Get("X-Timestamp"), c.Get("X-Signature"), c.BodyRaw(), d.Now()); err != nil {
+	if err := verifySignature(d.SigningSecret, c.Get("X-Timestamp"), c.Get("X-Signature"), c.BodyRaw(), d.Now(), d.SignatureTolerance); err != nil {
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": err.Error()})
 	}
 	in, err := parseLead(c.Body())

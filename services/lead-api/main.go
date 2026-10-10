@@ -1,3 +1,5 @@
+// lead-api receives signed leads from the partner, changes deal stages, and
+// runs the Google sign-in that sheets-sync depends on.
 package main
 
 import (
@@ -11,24 +13,25 @@ import (
 
 	"github.com/gofiber/fiber/v3"
 
-	"leadmgr/internal/api"
 	"leadmgr/internal/config"
 	"leadmgr/internal/sheets"
 	"leadmgr/internal/store"
+	"leadmgr/services/lead-api/api"
 )
 
 func main() {
 	if err := run(); err != nil {
-		slog.Error("server stopped", "err", err)
+		slog.Error("lead-api stopped", "err", err)
 		os.Exit(1)
 	}
 }
 
 func run() error {
-	cfg, err := config.Load(os.Getenv)
+	cfg, err := config.LoadAPI(os.Getenv)
 	if err != nil {
 		return fmt.Errorf("config:\n%w", err)
 	}
+	slog.SetLogLoggerLevel(cfg.LogLevel)
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
@@ -39,21 +42,23 @@ func run() error {
 	}
 	defer pool.Close()
 
-	google := &sheets.Google{
-		Pool:  pool,
-		OAuth: sheets.OAuthConfig(cfg.GoogleClientID, cfg.GoogleClientSecret, cfg.GoogleRedirectURL),
-		Key:   cfg.TokenKey,
-	}
-	worker := &sheets.Worker{Pool: pool, SheetFor: google.Sheet, Interval: 2 * time.Second}
-	go worker.Run(ctx)
-
-	app := api.New(api.Deps{Pool: pool, SigningSecret: cfg.SigningSecret, AdminAPIKey: cfg.AdminAPIKey, Google: google})
+	app := api.New(api.Deps{
+		Pool:               pool,
+		SigningSecret:      cfg.SigningSecret,
+		AdminAPIKey:        cfg.AdminAPIKey,
+		SignatureTolerance: cfg.SignatureTolerance,
+		Google: &sheets.Google{
+			Pool:  pool,
+			OAuth: sheets.OAuthConfig(cfg.Google.ClientID, cfg.Google.ClientSecret, cfg.Google.RedirectURL),
+			Key:   cfg.Google.TokenKey,
+		},
+	})
 
 	errc := make(chan error, 1)
 	go func() {
 		errc <- app.Listen(fmt.Sprintf(":%d", cfg.Port), fiber.ListenConfig{DisableStartupMessage: true})
 	}()
-	slog.Info("listening", "port", cfg.Port)
+	slog.Info("lead-api listening", "port", cfg.Port, "google_redirect", cfg.Google.RedirectURL)
 
 	select {
 	case err := <-errc:

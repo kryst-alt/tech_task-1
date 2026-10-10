@@ -1,3 +1,4 @@
+# Postgres plus the two services. Settings come from .env (run `make setup`).
 services:
   db:
     image: docker.io/library/postgres:17-alpine
@@ -6,7 +7,7 @@ services:
       POSTGRES_PASSWORD: leads
       POSTGRES_DB: leads
     ports:
-      - "5432:5432"
+      - "${DB_PORT:-5432}:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
@@ -14,15 +15,35 @@ services:
       interval: 2s
       retries: 15
 
-  app:
-    build: .
+  lead-api:
+    build:
+      context: .
+      dockerfile: services/lead-api/Dockerfile
     env_file: .env
     environment:
       DATABASE_URL: postgres://leads:leads@db:5432/leads?sslmode=disable
+      PORT: "8080"
+      # The browser reaches the API on the host port, so the redirect must use it.
+      GOOGLE_REDIRECT_URL: ${GOOGLE_REDIRECT_URL:-http://localhost:${PORT:-8080}/auth/google/callback}
     ports:
-      - "8080:8080"
+      - "${PORT:-8080}:8080"
     depends_on:
       db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8080/healthz"]
+      interval: 3s
+      retries: 20
+
+  sheets-sync:
+    build:
+      context: .
+      dockerfile: services/sheets-sync/Dockerfile
+    env_file: .env
+    environment:
+      DATABASE_URL: postgres://leads:leads@db:5432/leads?sslmode=disable
+    depends_on:
+      lead-api:
         condition: service_healthy
 
 volumes:

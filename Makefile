@@ -1,21 +1,49 @@
-# testcontainers talks to Podman through its Docker-compatible socket.
-DOCKER_HOST ?= unix://$(XDG_RUNTIME_DIR)/podman/podman.sock
-export DOCKER_HOST
+# Uses Podman when installed, Docker otherwise. Override with: make up COMPOSE="docker compose"
+COMPOSE ?= $(if $(shell command -v podman 2>/dev/null),podman compose,docker compose)
+
+# testcontainers reaches Podman through its Docker-compatible socket.
+PODMAN_SOCK := $(XDG_RUNTIME_DIR)/podman/podman.sock
+ifneq ($(wildcard $(PODMAN_SOCK)),)
+export DOCKER_HOST ?= unix://$(PODMAN_SOCK)
 export TESTCONTAINERS_RYUK_DISABLED ?= true
+endif
 
-.PHONY: run test generate db-up db-down
+LOAD_ENV := set -a && . ./.env && set +a
 
-run:
-	set -a && . ./.env && set +a && go run ./cmd/server
+.PHONY: help setup up down logs ps db-up db-down run-api run-sync test generate
 
-test:
+help: ## List targets
+	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  %-10s %s\n", $$1, $$2}'
+
+setup: ## Create .env with generated secrets and import the Google client JSON
+	@scripts/setup.sh
+
+up: ## Build and start db, lead-api and sheets-sync in containers
+	$(COMPOSE) up -d --build
+
+down: ## Stop all containers (data is kept)
+	$(COMPOSE) down
+
+logs: ## Follow logs of both services
+	$(COMPOSE) logs -f lead-api sheets-sync
+
+ps: ## Show container status
+	$(COMPOSE) ps
+
+db-up: ## Start only Postgres, for running the services with go run
+	$(COMPOSE) up -d db
+
+db-down: ## Stop Postgres
+	$(COMPOSE) down
+
+run-api: ## Run lead-api locally (needs make db-up)
+	$(LOAD_ENV) && go run ./services/lead-api
+
+run-sync: ## Run sheets-sync locally (needs make db-up)
+	$(LOAD_ENV) && go run ./services/sheets-sync
+
+test: ## Run all tests (starts its own Postgres container)
 	go test ./...
 
-generate:
+generate: ## Regenerate sqlc code after editing db/queries
 	go tool sqlc generate
-
-db-up:
-	podman compose up -d db
-
-db-down:
-	podman compose down

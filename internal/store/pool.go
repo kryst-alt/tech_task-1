@@ -8,6 +8,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/jackc/pgx/v5/stdlib"
 	"github.com/pressly/goose/v3"
+	"github.com/pressly/goose/v3/lock"
 
 	"leadmgr/db"
 )
@@ -33,7 +34,12 @@ func Migrate(ctx context.Context, pool *pgxpool.Pool) error {
 	sqlDB := stdlib.OpenDBFromPool(pool)
 	defer sqlDB.Close()
 
-	provider, err := goose.NewProvider(goose.DialectPostgres, sqlDB, migrations)
+	// Both services migrate on start. The advisory lock lets only one run at a time.
+	locker, err := lock.NewPostgresSessionLocker()
+	if err != nil {
+		return err
+	}
+	provider, err := goose.NewProvider(goose.DialectPostgres, sqlDB, migrations, goose.WithSessionLocker(locker))
 	if err != nil {
 		return fmt.Errorf("migrations: %w", err)
 	}

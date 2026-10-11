@@ -1,0 +1,1112 @@
+{
+  "info": {
+    "name": "Lead Management API",
+    "description": "Demo and test collection for the lead API. Import together with the environment, fill in signingSecret and adminApiKey (or generate the environment with scripts/postman-env.sh), then run the whole collection in the Collection Runner.\n\nEvery POST /v1/leads is signed automatically by the collection's pre-request script.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// Signs POST /v1/leads the way the partner does:",
+          "// X-Signature = \"sha256=\" + hex(HMAC-SHA256(secret, timestamp + \".\" + raw body))",
+          "if (!pm.collectionVariables.get(\"runId\")) {",
+          "  pm.collectionVariables.set(\"runId\", Date.now().toString(36));",
+          "}",
+          "if (pm.request.method === \"POST\" && pm.request.url.getPath() === \"/v1/leads\") {",
+          "  const secret = pm.environment.get(\"signingSecret\");",
+          "  if (!secret) throw new Error(\"Set signingSecret in the environment (LEAD_SIGNING_SECRET from .env)\");",
+          "  const body = pm.variables.replaceIn(pm.request.body.raw);",
+          "  const timestamp = Math.floor(Date.now() / 1000).toString();",
+          "  const signature = CryptoJS.HmacSHA256(timestamp + \".\" + body, secret).toString(CryptoJS.enc.Hex);",
+          "  pm.request.headers.upsert({ key: \"X-Timestamp\", value: timestamp });",
+          "  pm.request.headers.upsert({ key: \"X-Signature\", value: \"sha256=\" + signature });",
+          "}"
+        ]
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "runId",
+      "value": ""
+    }
+  ],
+  "item": [
+    {
+      "name": "0. Health",
+      "item": [
+        {
+          "name": "Health check",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/healthz",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "healthz"
+              ]
+            },
+            "description": "Database and Google link status. `google` should be `ok` once the sheet is connected.\n\nAlso starts a new run: every lead below gets fresh ids, so the collection can be run again and again."
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.collectionVariables.set(\"runId\", Date.now().toString(36));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"database is ok\", () => pm.expect(pm.response.json().database).to.eql(\"ok\"));",
+                  "pm.test(\"google is linked\", () => pm.expect(pm.response.json().google).to.eql(\"ok\"));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "1. Receive leads (R1.1, R1.3, R1.4, R4.2, R4.3)",
+      "item": [
+        {
+          "name": "Create a new lead",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/leads",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "leads"
+              ]
+            },
+            "description": "R1.1: a signed lead with all five fields is stored. Look for the new row in the Google Sheet.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id\": \"pm-{{runId}}-a\",\n  \"name\": \"Ada\",\n  \"email\": \"ada.{{runId}}@example.com\",\n  \"company\": \"Acme\",\n  \"source\": \"postman\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 201\", () => pm.response.to.have.status(201));",
+                  "pm.test(\"result is create\", () => pm.expect(pm.response.json().result).to.eql(\"create\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Send the same lead again (duplicate)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/leads",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "leads"
+              ]
+            },
+            "description": "R1.3 / R4.2: an identical resubmission creates nothing new.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id\": \"pm-{{runId}}-a\",\n  \"name\": \"Ada\",\n  \"email\": \"ada.{{runId}}@example.com\",\n  \"company\": \"Acme\",\n  \"source\": \"postman\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"result is unchanged\", () => pm.expect(pm.response.json().result).to.eql(\"unchanged\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Same id, changed company (update)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/leads",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "leads"
+              ]
+            },
+            "description": "The partner resends a lead with new details: the stored lead is updated, and its sheet row is rewritten in place.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id\": \"pm-{{runId}}-a\",\n  \"name\": \"Ada\",\n  \"email\": \"ada.{{runId}}@example.com\",\n  \"company\": \"Analytical Engines Ltd\",\n  \"source\": \"postman\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"result is update\", () => pm.expect(pm.response.json().result).to.eql(\"update\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "New id, existing email (update by email)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/leads",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "leads"
+              ]
+            },
+            "description": "R1.4 / R4.3: the email is already stored under another id, so the existing lead is updated instead of a second one being created. Email matching ignores case.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id\": \"pm-{{runId}}-a2\",\n  \"name\": \"Ada Lovelace\",\n  \"email\": \"ADA.{{runId}}@example.com\",\n  \"company\": \"Analytical Engines Ltd\",\n  \"source\": \"postman\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"result is update\", () => pm.expect(pm.response.json().result).to.eql(\"update\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create a second lead",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/leads",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "leads"
+              ]
+            },
+            "description": "Another new lead, used by the conflict check below.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id\": \"pm-{{runId}}-b\",\n  \"name\": \"Grace\",\n  \"email\": \"grace.{{runId}}@example.com\",\n  \"company\": \"Navy\",\n  \"source\": \"postman\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 201\", () => pm.response.to.have.status(201));",
+                  "pm.test(\"result is create\", () => pm.expect(pm.response.json().result).to.eql(\"create\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Id of one lead, email of another (conflict)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/leads",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "leads"
+              ]
+            },
+            "description": "The id belongs to lead A and the email to lead B. Merging them would lose data, so the request is refused.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id\": \"pm-{{runId}}-a\",\n  \"name\": \"Ada\",\n  \"email\": \"grace.{{runId}}@example.com\",\n  \"company\": \"Acme\",\n  \"source\": \"postman\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 409\", () => pm.response.to.have.status(409));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Missing fields and bad email (invalid)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/leads",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "leads"
+              ]
+            },
+            "description": "Signed correctly, but the lead is incomplete.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id\": \"pm-{{runId}}-bad\",\n  \"name\": \"\",\n  \"email\": \"not-an-email\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 422\", () => pm.response.to.have.status(422));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "2. Signature check (R1.2, R4.1)",
+      "item": [
+        {
+          "name": "No signature",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/leads",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "leads"
+              ]
+            },
+            "description": "The signature headers are removed before sending.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id\": \"pm-{{runId}}-x1\",\n  \"name\": \"Eve\",\n  \"email\": \"eve1.{{runId}}@example.com\",\n  \"company\": \"Acme\",\n  \"source\": \"postman\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.request.headers.remove(\"X-Signature\");",
+                  "pm.request.headers.remove(\"X-Timestamp\");"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 401\", () => pm.response.to.have.status(401));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Wrong secret",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/leads",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "leads"
+              ]
+            },
+            "description": "Signed with a secret the server doesn't know, as an attacker would have to.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id\": \"pm-{{runId}}-x2\",\n  \"name\": \"Eve\",\n  \"email\": \"eve2.{{runId}}@example.com\",\n  \"company\": \"Acme\",\n  \"source\": \"postman\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const body = pm.variables.replaceIn(pm.request.body.raw);",
+                  "const ts = pm.request.headers.get(\"X-Timestamp\");",
+                  "const sig = CryptoJS.HmacSHA256(ts + \".\" + body, \"wrong-secret\").toString(CryptoJS.enc.Hex);",
+                  "pm.request.headers.upsert({ key: \"X-Signature\", value: \"sha256=\" + sig });"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 401\", () => pm.response.to.have.status(401));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Body changed after signing",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/leads",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "leads"
+              ]
+            },
+            "description": "Correctly signed, then the email is swapped in transit. The signature no longer matches the body.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id\": \"pm-{{runId}}-x3\",\n  \"name\": \"Eve\",\n  \"email\": \"eve3.{{runId}}@example.com\",\n  \"company\": \"Acme\",\n  \"source\": \"postman\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.request.body.raw = pm.variables.replaceIn(pm.request.body.raw).replace(\"eve3.\", \"attacker.\");"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 401\", () => pm.response.to.have.status(401));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Old timestamp (replay)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/leads",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "leads"
+              ]
+            },
+            "description": "Correct signature, but made 10 minutes ago. Stops someone recording a real request and resending it later.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id\": \"pm-{{runId}}-x4\",\n  \"name\": \"Eve\",\n  \"email\": \"eve4.{{runId}}@example.com\",\n  \"company\": \"Acme\",\n  \"source\": \"postman\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const body = pm.variables.replaceIn(pm.request.body.raw);",
+                  "const ts = (Math.floor(Date.now() / 1000) - 600).toString();",
+                  "const sig = CryptoJS.HmacSHA256(ts + \".\" + body, pm.environment.get(\"signingSecret\")).toString(CryptoJS.enc.Hex);",
+                  "pm.request.headers.upsert({ key: \"X-Timestamp\", value: ts });",
+                  "pm.request.headers.upsert({ key: \"X-Signature\", value: \"sha256=\" + sig });"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 401\", () => pm.response.to.have.status(401));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "3. Deal stages (R2.2)",
+      "item": [
+        {
+          "name": "new → qualified",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/leads/pm-{{runId}}-a/stage",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "leads",
+                "pm-{{runId}}-a",
+                "stage"
+              ]
+            },
+            "description": "Moves lead A one stage forward. The Stage column in the sheet follows.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"stage\": \"qualified\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminApiKey}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"stage is qualified\", () => pm.expect(pm.response.json().stage).to.eql(\"qualified\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "qualified → won (skips a stage)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/leads/pm-{{runId}}-a/stage",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "leads",
+                "pm-{{runId}}-a",
+                "stage"
+              ]
+            },
+            "description": "Stages can't be skipped.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"stage\": \"won\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminApiKey}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 409\", () => pm.response.to.have.status(409));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "qualified → proposal",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/leads/pm-{{runId}}-a/stage",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "leads",
+                "pm-{{runId}}-a",
+                "stage"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"stage\": \"proposal\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminApiKey}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"stage is proposal\", () => pm.expect(pm.response.json().stage).to.eql(\"proposal\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "proposal → won",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/leads/pm-{{runId}}-a/stage",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "leads",
+                "pm-{{runId}}-a",
+                "stage"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"stage\": \"won\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminApiKey}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"stage is won\", () => pm.expect(pm.response.json().stage).to.eql(\"won\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "won → lost (final stage)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/leads/pm-{{runId}}-a/stage",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "leads",
+                "pm-{{runId}}-a",
+                "stage"
+              ]
+            },
+            "description": "Won and Lost are final.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"stage\": \"lost\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminApiKey}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 409\", () => pm.response.to.have.status(409));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "new → lost",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/leads/pm-{{runId}}-b/stage",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "leads",
+                "pm-{{runId}}-b",
+                "stage"
+              ]
+            },
+            "description": "Any open stage can move to Lost.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"stage\": \"lost\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminApiKey}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"stage is lost\", () => pm.expect(pm.response.json().stage).to.eql(\"lost\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Unknown stage",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/leads/pm-{{runId}}-b/stage",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "leads",
+                "pm-{{runId}}-b",
+                "stage"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"stage\": \"negotiation\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminApiKey}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 422\", () => pm.response.to.have.status(422));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Unknown lead",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/leads/pm-{{runId}}-missing/stage",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "leads",
+                "pm-{{runId}}-missing",
+                "stage"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"stage\": \"qualified\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminApiKey}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 404\", () => pm.response.to.have.status(404));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "No admin key",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/leads/pm-{{runId}}-b/stage",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "leads",
+                "pm-{{runId}}-b",
+                "stage"
+              ]
+            },
+            "description": "Stage changes need the admin key.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"stage\": \"qualified\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 401\", () => pm.response.to.have.status(401));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

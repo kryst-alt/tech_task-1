@@ -38,7 +38,7 @@ The isolation the system needs is between "accept the lead" and "talk to Google"
 | Logging | `log/slog` |
 | Config | Environment variables per service (`config.LoadAPI`, `config.LoadSync`), optional ones with defaults |
 | Tests | `testing`, `testcontainers-go` (Postgres module), Fiber `app.Test` |
-| Local run | Compose: `postgres:17`, lead-api, sheets-sync. Podman or Docker, detected by the Makefile. |
+| Local run | Compose: `postgres:17`, lead-api, sheets-sync. Docker by default; the Makefile falls back to Podman when Docker is missing. |
 
 ## Data model
 
@@ -150,6 +150,8 @@ The `lead` package holds the decisions (create, update, no-op, conflict, allowed
 | Extra | ID/email conflict returns 409. Invalid stage moves return 409. The sync worker, run against a fake Sheets client, converges after an injected failure. |
 
 The endpoint tests drive the real Fiber app with `app.Test` against Postgres in testcontainers. `go test ./...` runs everything. It needs Docker running.
+
+`postman/` holds a black-box collection for demos: it signs requests like the partner and checks every requirement against the running containers. The Go tests stay the source of truth; a separate Python suite was considered and dropped because it would duplicate them in a second language.
 
 ## Configuration
 

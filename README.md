@@ -25,18 +25,33 @@ Design notes are in [docs/STACK.md](docs/STACK.md), and the requirements are in 
 | Endpoint to change a lead's stage | Done |
 | Google sign-in and Sheets sync | Done |
 
+## Why this approach
+
+- **Go with Fiber, Postgres and sqlc.** Each service builds to one small binary, and Go's goroutines suit a background worker. Postgres enforces the duplicate rules itself: unique indexes on the partner's `id` and on `email`, row locks, and `citext` so emails match regardless of case. sqlc turns plain SQL into typed Go functions, so a wrong column name fails at build time without an ORM in between.
+- **Two services, not one and not five.** lead-api answers the partner without waiting for Google. sheets-sync talks to Google on its own schedule. They share the database and never call each other, so either one can be down without losing a lead. More services would add network calls and deployment work without solving a problem this system has.
+- **The database is the sync queue.** Every change to a lead raises `leads.version`, and the worker copies any lead whose version is ahead of `lead_sync.synced_version`. A message broker would be a second system to run and keep consistent with the database. With versions, ten quick edits to one lead become one sheet write, and a Google outage only delays syncing.
+- **HMAC-SHA256 over the timestamp and the raw body.** This is the scheme Stripe uses to sign webhooks, so a partner developer will likely recognise it. Signing the raw bytes means the check never depends on how the JSON gets parsed. The timestamp, with a 5-minute window, stops anyone replaying a recorded request, and the comparison runs in constant time.
+- **Duplicates are matched by id, then by email, inside one transaction.** Both candidate rows are locked with `SELECT ... FOR UPDATE`. If the id belongs to one stored lead and the email to another, the request gets 409 instead of silently merging two people. When two first submissions arrive at the same moment, the unique index rejects one, and it retries once as an update. A test forces that race.
+- **Incoming leads never change the deal stage.** The partner owns the contact details and the sales team owns the stage. Stages only move forward through `PATCH /v1/leads/{id}/stage`, and Won and Lost are final.
+- **OAuth with offline access and an encrypted refresh token.** One admin signs in once. Google returns a refresh token, which the app stores encrypted with AES-256-GCM, and the worker renews the hourly access token by itself. The `drive.file` scope limits the app to the spreadsheet it created. If Google revokes access, syncing pauses, `/healthz` reports `reauth_required`, and queued leads wait for a new sign-in.
+- **Tests run against a real Postgres.** testcontainers starts a throwaway database for each test run. Duplicate handling depends on constraints and locks, and a mocked database could not prove those work.
+
 ## Requirements
 
-- Podman with `podman-compose`, or Docker with Compose
+- Docker Engine with the Compose plugin (Podman with `podman-compose` also works)
 - `openssl`, `curl`, and `python3` (setup reads the Google JSON with it)
 - Go 1.26 or newer, only for running tests or the services outside containers
 
-On Fedora:
+Docker on Fedora (other systems: <https://docs.docker.com/engine/install/>):
 
 ```sh
-sudo dnf install golang podman-compose
-systemctl --user enable --now podman.socket   # make test reaches Podman through this socket
+sudo dnf config-manager addrepo --from-repofile=https://download.docker.com/linux/fedora/docker-ce.repo
+sudo dnf install golang docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+sudo systemctl enable --now docker
+sudo usermod -aG docker $USER   # then log out and back in, so docker runs without sudo
 ```
+
+The Makefile uses Docker when it is installed. Without Docker it falls back to Podman; then also run `systemctl --user enable --now podman.socket` so `make test` can reach it.
 
 ## Quick start
 
@@ -56,7 +71,7 @@ systemctl --user enable --now podman.socket   # make test reaches Podman through
    ```
    It returns `201 {"result":"create"}` and appears in the sheet within a few seconds.
 
-`make logs` follows both services. `make down` stops them and keeps the data. `podman compose down -v` deletes the data too.
+`make logs` follows both services. `make down` stops them and keeps the data. `docker compose down -v` deletes the data too.
 
 Run `make help` for every target.
 
@@ -91,7 +106,7 @@ The server stores the refresh token encrypted and renews the hourly access token
 make test
 ```
 
-The tests start their own Postgres container, so `make db-up` is not needed. The Makefile points testcontainers at the Podman socket when it exists, and at Docker otherwise.
+The tests start their own Postgres container, so `make db-up` is not needed. They use Docker, or the Podman socket when Docker is not installed.
 
 | Test | Proves |
 |---|---|
@@ -100,6 +115,27 @@ The tests start their own Postgres container, so `make db-up` is not needed. The
 | `TestLeadWithExistingEmailUpdatesRecord` | A new ID with a known email updates that lead |
 | `TestUpsertLosingInsertRaceBecomesUpdate` | Two simultaneous first submissions still store one row |
 | `internal/sheets` tests | The worker writes each change once, retries with backoff, waits while unlinked, and pauses on a revoked token |
+
+## Demo with Postman
+
+[`postman/`](postman) holds a collection that signs each request the way the partner does and checks every response.
+
+1. Run `scripts/postman-env.sh`. It writes `postman/local.postman_environment.json` with the secrets from `.env`. Git ignores that file.
+2. In Postman, import `postman/lead-api.postman_collection.json` and the local environment, then select **Lead API (local, with secrets)**.
+3. Run the collection. Every run uses new lead IDs, so it can be repeated.
+
+| Folder | Checks |
+|---|---|
+| 0. Health | Database reachable, Google linked |
+| 1. Receive leads | Create (201), same lead again (200 unchanged), update by ID, update by existing email, ID and email of different leads (409), invalid lead (422) |
+| 2. Signature check | Missing signature, wrong secret, body changed after signing, 10-minute-old timestamp: all 401 |
+| 3. Deal stages | Allowed moves (200), skipped stage and change after Won (409), unknown stage (422), unknown lead (404), no admin key (401) |
+
+Without Postman, the same 21 requests and 32 checks run from the terminal:
+
+```sh
+npx newman run postman/lead-api.postman_collection.json -e postman/local.postman_environment.json
+```
 
 ## API
 
@@ -198,8 +234,19 @@ internal/            libraries shared by both services
 db/
   migrations/        schema (goose), embedded and applied by whichever service starts first
   queries/           SQL for sqlc. Run make generate after editing.
-scripts/             setup.sh, send-lead.sh
+scripts/             setup.sh, send-lead.sh, postman-env.sh
+postman/             Postman collection and environment template
 docs/                requirements and design
 compose.yaml         db + both services
 .claude/             instructions and work journal for Claude Code
 ```
+
+## What I'd improve with more time
+
+1. **Team access with Google sign-in.** Today one admin key protects stage changes and the Google link. Next would be a `users` table of invited emails with roles: admins invite people and manage the sheet, members move deals. People would sign in with Google, get a session stored in the database, and send a CSRF token with every change. The partner endpoint keeps its HMAC check, since lead intake does not involve users.
+2. **Keep the admin key out of URLs.** `/auth/google?key=...` leaves the admin key in browser history. Team sign-in would replace it. Until then, a one-time link that expires after 5 minutes would close the gap.
+3. **Rate limiting and request logs** on `POST /v1/leads`, so a misbehaving client can't flood the service and every rejected request can be traced.
+4. **Fewer Google API calls.** Each lead costs two calls: read column A to find the row, then write it. Reading column A once per batch and sending one batch update would keep large imports under Google's per-minute quota.
+5. **Signing-secret rotation.** Accept two secrets during a rollover so the partner can switch without failed requests.
+6. **Save rotated refresh tokens.** If Google returns a new refresh token while renewing access, the app does not store it yet.
+7. **Hosting and monitoring.** Run both images behind HTTPS, track sync lag and failed attempts, and alert when `/healthz` reports `reauth_required`.

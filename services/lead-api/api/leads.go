@@ -21,21 +21,21 @@ var errBadSignature = errors.New("invalid signature")
 
 // verifySignature checks X-Signature = "sha256=" + hex(HMAC-SHA256(secret, timestamp + "." + body)).
 func verifySignature(secret []byte, timestamp, signature string, body []byte, now time.Time, tolerance time.Duration) error {
-	ts, err := strconv.ParseInt(timestamp, 10, 64)
+	sentAt, err := strconv.ParseInt(timestamp, 10, 64)
 	if err != nil {
 		return errBadSignature
 	}
-	if d := now.Sub(time.Unix(ts, 0)); d > tolerance || d < -tolerance {
+	if drift := now.Sub(time.Unix(sentAt, 0)); drift > tolerance || drift < -tolerance {
 		return errBadSignature
 	}
-	got, err := hex.DecodeString(strings.TrimPrefix(signature, "sha256="))
+	receivedMAC, err := hex.DecodeString(strings.TrimPrefix(signature, "sha256="))
 	if err != nil || !strings.HasPrefix(signature, "sha256=") {
 		return errBadSignature
 	}
-	m := hmac.New(sha256.New, secret)
-	m.Write([]byte(timestamp + "."))
-	m.Write(body)
-	if !hmac.Equal(got, m.Sum(nil)) {
+	mac := hmac.New(sha256.New, secret)
+	mac.Write([]byte(timestamp + "."))
+	mac.Write(body)
+	if !hmac.Equal(receivedMAC, mac.Sum(nil)) {
 		return errBadSignature
 	}
 	return nil
@@ -48,7 +48,7 @@ func parseLead(body []byte) (lead.Incoming, error) {
 	if err := json.Unmarshal(body, &raw); err != nil {
 		return lead.Incoming{}, errors.New("body must be a JSON object")
 	}
-	in := lead.Incoming{
+	incoming := lead.Incoming{
 		ExternalID: strings.TrimSpace(raw.ID),
 		Fields: lead.Fields{
 			Name:    strings.TrimSpace(raw.Name),
@@ -58,20 +58,20 @@ func parseLead(body []byte) (lead.Incoming, error) {
 		},
 	}
 	var missing []string
-	for _, f := range []struct{ name, value string }{
-		{"id", in.ExternalID}, {"name", in.Name}, {"email", in.Email}, {"company", in.Company}, {"source", in.Source},
+	for _, field := range []struct{ name, value string }{
+		{"id", incoming.ExternalID}, {"name", incoming.Name}, {"email", incoming.Email}, {"company", incoming.Company}, {"source", incoming.Source},
 	} {
-		if f.value == "" {
-			missing = append(missing, f.name)
+		if field.value == "" {
+			missing = append(missing, field.name)
 		}
 	}
 	if len(missing) > 0 {
 		return lead.Incoming{}, errors.New("required: " + strings.Join(missing, ", "))
 	}
-	if addr, err := mail.ParseAddress(in.Email); err != nil || addr.Address != in.Email {
+	if addr, err := mail.ParseAddress(incoming.Email); err != nil || addr.Address != incoming.Email {
 		return lead.Incoming{}, errors.New("email is not a valid address")
 	}
-	return in, nil
+	return incoming, nil
 }
 
 var actionStatus = map[lead.Action]int{
@@ -85,11 +85,11 @@ func (d Deps) postLead(c fiber.Ctx) error {
 	if err := verifySignature(d.SigningSecret, c.Get("X-Timestamp"), c.Get("X-Signature"), c.BodyRaw(), d.Now(), d.SignatureTolerance); err != nil {
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": err.Error()})
 	}
-	in, err := parseLead(c.Body())
+	incoming, err := parseLead(c.Body())
 	if err != nil {
 		return c.Status(fiber.StatusUnprocessableEntity).JSON(fiber.Map{"error": err.Error()})
 	}
-	action, err := store.UpsertLead(c.Context(), d.Pool, in)
+	action, err := store.UpsertLead(c.Context(), d.Pool, incoming)
 	if err != nil {
 		return err
 	}

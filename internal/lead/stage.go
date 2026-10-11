@@ -21,12 +21,12 @@ var transitions = map[Stage][]Stage{
 	StageLost:      nil,
 }
 
-func ParseStage(s string) (Stage, error) {
-	st := Stage(s)
-	if _, ok := transitions[st]; !ok {
-		return "", fmt.Errorf("unknown stage %q", s)
+func ParseStage(name string) (Stage, error) {
+	stage := Stage(name)
+	if _, ok := transitions[stage]; !ok {
+		return "", fmt.Errorf("unknown stage %q", name)
 	}
-	return st, nil
+	return stage, nil
 }
 
 func (s Stage) CanMoveTo(next Stage) bool {

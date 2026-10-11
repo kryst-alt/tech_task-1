@@ -42,8 +42,8 @@ func run() error {
 		OAuth: sheets.OAuthConfig(cfg.Google.ClientID, cfg.Google.ClientSecret, cfg.Google.RedirectURL),
 		Key:   cfg.Google.TokenKey,
 	}
-	w := &sheets.Worker{Pool: pool, SheetFor: google.Sheet, Interval: cfg.Interval, BatchSize: int32(cfg.BatchSize)}
+	worker := &sheets.Worker{Pool: pool, SheetFor: google.Sheet, Interval: cfg.Interval, BatchSize: int32(cfg.BatchSize)}
 	slog.Info("sheets-sync running", "interval", cfg.Interval, "batch_size", cfg.BatchSize)
-	w.Run(ctx)
+	worker.Run(ctx)
 	return nil
 }

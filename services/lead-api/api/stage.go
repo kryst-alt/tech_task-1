@@ -29,11 +29,11 @@ func (d Deps) patchStage(c fiber.Ctx) error {
 	if err := json.Unmarshal(c.Body(), &body); err != nil {
 		return c.Status(fiber.StatusUnprocessableEntity).JSON(fiber.Map{"error": "body must be a JSON object"})
 	}
-	to, err := lead.ParseStage(body.Stage)
+	nextStage, err := lead.ParseStage(body.Stage)
 	if err != nil {
 		return c.Status(fiber.StatusUnprocessableEntity).JSON(fiber.Map{"error": err.Error()})
 	}
-	switch err := store.ChangeStage(c.Context(), d.Pool, c.Params("id"), to); {
+	switch err := store.ChangeStage(c.Context(), d.Pool, c.Params("id"), nextStage); {
 	case errors.Is(err, store.ErrLeadNotFound):
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": err.Error()})
 	case errors.Is(err, store.ErrStageNotAllowed):
@@ -41,5 +41,5 @@ func (d Deps) patchStage(c fiber.Ctx) error {
 	case err != nil:
 		return err
 	}
-	return c.JSON(fiber.Map{"stage": to})
+	return c.JSON(fiber.Map{"stage": nextStage})
 }

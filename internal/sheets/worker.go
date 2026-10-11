@@ -49,13 +49,13 @@ func (w *Worker) Run(ctx context.Context) {
 // intake. Marking a sync keeps the highest version, so a lead changed mid-call
 // stays due.
 func (w *Worker) SyncDue(ctx context.Context) (int, error) {
-	q := store.New(w.Pool)
+	queries := store.New(w.Pool)
 	sheet, err := w.SheetFor(ctx)
 	switch {
 	case errors.Is(err, ErrNotLinked):
 		return 0, nil
 	case errors.Is(err, ErrReauthRequired):
-		return 0, w.flagReauth(ctx, q, err)
+		return 0, w.flagReauth(ctx, queries, err)
 	case err != nil:
 		return 0, err
 	}
@@ -64,23 +64,23 @@ func (w *Worker) SyncDue(ctx context.Context) (int, error) {
 	if batch == 0 {
 		batch = 50
 	}
-	due, err := q.DueSyncs(ctx, batch)
+	due, err := queries.DueSyncs(ctx, batch)
 	if err != nil {
 		return 0, err
 	}
 	synced := 0
-	for _, l := range due {
-		err := sheet.UpsertRow(ctx, row(l))
+	for _, dueLead := range due {
+		err := sheet.UpsertRow(ctx, row(dueLead))
 		switch {
 		case errors.Is(err, ErrReauthRequired):
-			return synced, w.flagReauth(ctx, q, err)
+			return synced, w.flagReauth(ctx, queries, err)
 		case err != nil:
-			slog.Warn("sheets sync failed, will retry", "lead", l.ExternalID, "err", err)
-			if err := q.MarkSyncFailed(ctx, store.MarkSyncFailedParams{LeadID: l.ID, LastError: err.Error()}); err != nil {
+			slog.Warn("sheets sync failed, will retry", "lead", dueLead.ExternalID, "err", err)
+			if err := queries.MarkSyncFailed(ctx, store.MarkSyncFailedParams{LeadID: dueLead.ID, LastError: err.Error()}); err != nil {
 				return synced, err
 			}
 		default:
-			if err := q.MarkSynced(ctx, store.MarkSyncedParams{LeadID: l.ID, SyncedVersion: l.Version}); err != nil {
+			if err := queries.MarkSynced(ctx, store.MarkSyncedParams{LeadID: dueLead.ID, SyncedVersion: dueLead.Version}); err != nil {
 				return synced, err
 			}
 			synced++
@@ -89,8 +89,8 @@ func (w *Worker) SyncDue(ctx context.Context) (int, error) {
 	return synced, nil
 }
 
-func (w *Worker) flagReauth(ctx context.Context, q *store.Queries, cause error) error {
-	n, err := q.MarkGoogleNeedsReauth(ctx)
+func (w *Worker) flagReauth(ctx context.Context, queries *store.Queries, cause error) error {
+	n, err := queries.MarkGoogleNeedsReauth(ctx)
 	if n == 1 {
 		slog.Error("google sign-in needed again, sync paused", "err", cause)
 	}
@@ -99,9 +99,9 @@ func (w *Worker) flagReauth(ctx context.Context, q *store.Queries, cause error) 
 
 var header = []any{"Lead ID", "Name", "Email", "Company", "Source", "Stage", "Created", "Updated"}
 
-func row(l store.Lead) []any {
+func row(record store.Lead) []any {
 	return []any{
-		l.ExternalID, l.Name, l.Email, l.Company, l.Source, string(l.Stage),
-		l.CreatedAt.UTC().Format(time.RFC3339), l.UpdatedAt.UTC().Format(time.RFC3339),
+		record.ExternalID, record.Name, record.Email, record.Company, record.Source, string(record.Stage),
+		record.CreatedAt.UTC().Format(time.RFC3339), record.UpdatedAt.UTC().Format(time.RFC3339),
 	}
 }

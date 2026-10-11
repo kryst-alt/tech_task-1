@@ -19,9 +19,9 @@ func (d Deps) startGoogleSignIn(c fiber.Ctx) error {
 		return c.Status(fiber.StatusUnauthorized).SendString("missing or wrong ?key= (use ADMIN_API_KEY)")
 	}
 	slog.Info("google sign-in started")
-	b := make([]byte, 16)
-	rand.Read(b)
-	state := hex.EncodeToString(b)
+	stateBytes := make([]byte, 16)
+	rand.Read(stateBytes)
+	state := hex.EncodeToString(stateBytes)
 	c.Cookie(&fiber.Cookie{Name: stateCookie, Value: state, Path: "/auth/google", MaxAge: 600, HTTPOnly: true, SameSite: "Lax"})
 	return c.Redirect().Status(fiber.StatusFound).To(d.Google.AuthURL(state))
 }
@@ -33,9 +33,9 @@ func (d Deps) finishGoogleSignIn(c fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).SendString("sign-in expired or was not started here, open /auth/google again")
 	}
 	c.ClearCookie(stateCookie)
-	if e := c.Query("error"); e != "" {
-		slog.Warn("google sign-in refused", "error", e)
-		return c.Status(fiber.StatusBadRequest).SendString("google sign-in failed: " + e)
+	if googleError := c.Query("error"); googleError != "" {
+		slog.Warn("google sign-in refused", "error", googleError)
+		return c.Status(fiber.StatusBadRequest).SendString("google sign-in failed: " + googleError)
 	}
 	email, sheetURL, err := d.Google.Link(c.Context(), c.Query("code"))
 	if err != nil {

@@ -126,20 +126,20 @@ func (r *reader) logLevel() slog.Level {
 }
 
 func (r *reader) google(defaultRedirect string) Google {
-	g := Google{
+	google := Google{
 		ClientID:     r.required("GOOGLE_CLIENT_ID"),
 		ClientSecret: r.required("GOOGLE_CLIENT_SECRET"),
 		RedirectURL:  r.getenv("GOOGLE_REDIRECT_URL"),
 	}
-	if g.RedirectURL == "" {
-		g.RedirectURL = defaultRedirect
+	if google.RedirectURL == "" {
+		google.RedirectURL = defaultRedirect
 	}
-	if k := r.required("TOKEN_ENCRYPTION_KEY"); k != "" {
-		key, err := base64.StdEncoding.DecodeString(k)
+	if encodedKey := r.required("TOKEN_ENCRYPTION_KEY"); encodedKey != "" {
+		key, err := base64.StdEncoding.DecodeString(encodedKey)
 		if err != nil || len(key) != 32 {
 			r.fail("TOKEN_ENCRYPTION_KEY must be 32 bytes, base64-encoded (generate with: openssl rand -base64 32)")
 		}
-		g.TokenKey = key
+		google.TokenKey = key
 	}
-	return g
+	return google
 }

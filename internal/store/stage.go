@@ -18,8 +18,8 @@ var (
 // ChangeStage moves the lead with the partner's externalID to stage `to` and queues it for sync.
 func ChangeStage(ctx context.Context, pool *pgxpool.Pool, externalID string, to lead.Stage) error {
 	return pgx.BeginFunc(ctx, pool, func(tx pgx.Tx) error {
-		q := New(tx)
-		row, err := q.GetLeadStageForUpdate(ctx, externalID)
+		queries := New(tx)
+		row, err := queries.GetLeadStageForUpdate(ctx, externalID)
 		if errors.Is(err, pgx.ErrNoRows) {
 			return ErrLeadNotFound
 		}
@@ -29,9 +29,9 @@ func ChangeStage(ctx context.Context, pool *pgxpool.Pool, externalID string, to 
 		if !lead.Stage(row.Stage).CanMoveTo(to) {
 			return ErrStageNotAllowed
 		}
-		if err := q.SetLeadStage(ctx, SetLeadStageParams{ID: row.ID, Stage: LeadStage(to)}); err != nil {
+		if err := queries.SetLeadStage(ctx, SetLeadStageParams{ID: row.ID, Stage: LeadStage(to)}); err != nil {
 			return err
 		}
-		return q.MarkLeadForSync(ctx, row.ID)
+		return queries.MarkLeadForSync(ctx, row.ID)
 	})
 }

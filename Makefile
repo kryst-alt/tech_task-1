@@ -1,11 +1,14 @@
-# Uses Podman when installed, Docker otherwise. Override with: make up COMPOSE="docker compose"
-COMPOSE ?= $(if $(shell command -v podman 2>/dev/null),podman compose,docker compose)
+# Uses Docker when installed, Podman otherwise. Override with: make up COMPOSE="podman compose"
+HAVE_DOCKER := $(shell command -v docker 2>/dev/null)
+COMPOSE ?= $(if $(HAVE_DOCKER),docker compose,podman compose)
 
-# testcontainers reaches Podman through its Docker-compatible socket.
+# Without Docker, testcontainers reaches Podman through its Docker-compatible socket.
 PODMAN_SOCK := $(XDG_RUNTIME_DIR)/podman/podman.sock
+ifeq ($(HAVE_DOCKER),)
 ifneq ($(wildcard $(PODMAN_SOCK)),)
 export DOCKER_HOST ?= unix://$(PODMAN_SOCK)
 export TESTCONTAINERS_RYUK_DISABLED ?= true
+endif
 endif
 
 LOAD_ENV := set -a && . ./.env && set +a

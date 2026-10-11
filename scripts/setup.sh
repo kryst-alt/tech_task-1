@@ -11,10 +11,14 @@ warn() { printf '  \033[33mtodo\033[0m  %s\n' "$*"; }
 
 echo "Checking tools"
 have() { command -v "$1" >/dev/null 2>&1; }
-if have podman; then ok "podman"; elif have docker; then ok "docker"; else warn "install podman or docker"; fi
+if have docker; then
+  ok "docker"
+  docker info >/dev/null 2>&1 || warn "docker is installed but not reachable: sudo systemctl enable --now docker, and add yourself to the docker group"
+elif have podman; then ok "podman (docker not found, using podman instead)"
+else warn "install docker (or podman)"; fi
 have go && ok "$(go version | cut -d' ' -f3) (only needed for make test / run-api / run-sync)" || warn "go not found (only needed for local development)"
 have openssl || { echo "openssl is required to generate secrets"; exit 1; }
-if have podman && [ -n "${XDG_RUNTIME_DIR:-}" ] && [ ! -S "$XDG_RUNTIME_DIR/podman/podman.sock" ]; then
+if ! have docker && have podman && [ -n "${XDG_RUNTIME_DIR:-}" ] && [ ! -S "$XDG_RUNTIME_DIR/podman/podman.sock" ]; then
   warn "make test needs the Podman socket: systemctl --user enable --now podman.socket"
 fi
 

@@ -6,8 +6,10 @@ services:
       POSTGRES_USER: leads
       POSTGRES_PASSWORD: leads
       POSTGRES_DB: leads
+    restart: unless-stopped
+    # Only this machine can reach Postgres; the services use the compose network.
     ports:
-      - "${DB_PORT:-5432}:5432"
+      - "127.0.0.1:${DB_PORT:-5432}:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
@@ -19,6 +21,7 @@ services:
     build:
       context: .
       dockerfile: services/lead-api/Dockerfile
+    restart: unless-stopped
     env_file: .env
     environment:
       DATABASE_URL: postgres://leads:leads@db:5432/leads?sslmode=disable
@@ -39,6 +42,7 @@ services:
     build:
       context: .
       dockerfile: services/sheets-sync/Dockerfile
+    restart: unless-stopped
     env_file: .env
     environment:
       DATABASE_URL: postgres://leads:leads@db:5432/leads?sslmode=disable

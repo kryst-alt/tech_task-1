@@ -220,6 +220,18 @@ Starts Google sign-in. See [Google Sheets setup](#google-sheets-setup). The key 
 
 Returns `200 {"database":"ok","google":"ok"}`. `google` is `not_linked` before sign-in and `reauth_required` after Google revokes access. Returns 503 when Postgres is unreachable.
 
+## Running on a home server
+
+The stack can run on an always-on machine and be used from other devices. Compose restarts the containers after a reboot, and Postgres only listens on the server itself. Port 8080 is open to the network; every endpoint still needs the HMAC signature or the admin key.
+
+A private overlay network such as ZeroTier or Tailscale makes the server reachable from anywhere without opening router ports. Replace `<server-ip>` below with the server's address on that network.
+
+| Task | From another device |
+|---|---|
+| Call the API, use Postman | `http://<server-ip>:8080`. Generate the Postman environment on the server with `scripts/postman-env.sh http://<server-ip>:8080` and copy it over. |
+| Link or re-link Google | `ssh -L 8080:localhost:8080 <user>@<server-ip>`, then open `http://localhost:8080/auth/google?key=<ADMIN_API_KEY>` in the local browser. Google accepts only `localhost` or an HTTPS public domain as a redirect, so the tunnel makes the callback land on the server. |
+| Run the tests | `ssh <user>@<server-ip>`, then `make check` in the project folder. The acceptance tests read Postgres, which only the server can reach. |
+
 ## Configuration
 
 All settings live in `.env`. `make setup` fills in the required ones.
@@ -232,7 +244,7 @@ All settings live in `.env`. `make setup` fills in the required ones.
 | `LEAD_SIGNING_SECRET` | lead-api | required | Shared HMAC secret, at least 32 characters |
 | `ADMIN_API_KEY` | lead-api | required | Bearer token for admin endpoints and the sign-in link, at least 32 characters |
 | `PORT` | lead-api | `8080` | HTTP port on the host |
-| `DB_PORT` | compose | `5432` | Postgres port on the host |
+| `DB_PORT` | compose | `5432` | Postgres port on the host, reachable only from this machine |
 | `GOOGLE_REDIRECT_URL` | lead-api | `http://localhost:$PORT/auth/google/callback` | Must match the redirect URI on the OAuth client |
 | `SIGNATURE_TOLERANCE` | lead-api | `5m` | How far `X-Timestamp` may be from the server clock |
 | `SYNC_INTERVAL` | sheets-sync | `2s` | How often to look for leads to sync |

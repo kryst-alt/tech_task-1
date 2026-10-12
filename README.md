@@ -103,10 +103,32 @@ The server stores the refresh token encrypted and renews the hourly access token
 ## Tests
 
 ```sh
-make test
+make check     # Go tests, then acceptance tests against the running stack, with a pass/fail report
+make test      # Go tests only, plain go test output
 ```
 
-The tests start their own Postgres container, so `make db-up` is not needed. They use Docker, or the Podman socket when Docker is not installed.
+There are three layers. Each checks something the others can't.
+
+| Layer | Where | Runs against | Proves |
+|---|---|---|---|
+| Go unit and integration tests | `*_test.go` | A throwaway Postgres container; Google is faked | Logic, SQL, locking and the sync worker, including races and failures that are hard to trigger from outside |
+| Acceptance tests (pytest) | `tests/acceptance/` | The running containers and the real Google Sheet | The deployed system end to end: HTTP responses, what Postgres stored, and that sheets-sync actually wrote each change |
+| Postman collection | `postman/` | The running containers | The same API by hand, for demos and exploring |
+
+The acceptance tests are in Python on purpose. They are black-box tests owned by QA in many teams, they use only HTTP and read-only SQL, and they never import the Go code, so they can't share its mistakes. `scripts/test.sh` creates their virtualenv on the first run.
+
+Run one suite or one area:
+
+```sh
+scripts/test.sh go                    # Go tests only, readable output (gotestsum)
+scripts/test.sh acceptance            # acceptance tests only (needs make up)
+scripts/test.sh signature             # one area in both suites
+scripts/test.sh acceptance stages     # one area in one suite
+```
+
+Areas: `signature`, `duplicates`, `email-update`, `stages`, `sync`, `health`, `config`. The Go tests start their own Postgres container, so `make db-up` is not needed. They use Docker, or the Podman socket when Docker is not installed. The acceptance sync tests write rows to the linked sheet; their lead IDs start with `qa-`.
+
+The Go tests the brief asks for:
 
 | Test | Proves |
 |---|---|
@@ -234,7 +256,8 @@ internal/            libraries shared by both services
 db/
   migrations/        schema (goose), embedded and applied by whichever service starts first
   queries/           SQL for sqlc. Run make generate after editing.
-scripts/             setup.sh, send-lead.sh, postman-env.sh
+scripts/             setup.sh, send-lead.sh, postman-env.sh, test.sh
+tests/acceptance/    pytest suite that tests the running system from outside
 postman/             Postman collection and environment template
 docs/                requirements and design
 compose.yaml         db + both services

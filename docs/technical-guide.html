@@ -270,7 +270,8 @@ make ps   <span class="c"># all three should say "healthy" or "running"</span></
       <tr><td><code>make ps</code></td><td>Show container status</td></tr>
       <tr><td><code>make db-up</code> / <code>make db-down</code></td><td>Start or stop only Postgres, for running the services with <code>go run</code></td></tr>
       <tr><td><code>make run-api</code> / <code>make run-sync</code></td><td>Run one service from source (needs <code>make db-up</code>)</td></tr>
-      <tr><td><code>make test</code></td><td>Run every test. Starts its own throwaway Postgres.</td></tr>
+      <tr><td><code>make check</code></td><td>Run the Go tests and the acceptance tests with a pass/fail report (needs <code>make up</code>)</td></tr>
+      <tr><td><code>make test</code></td><td>Run only the Go tests. Starts its own throwaway Postgres.</td></tr>
       <tr><td><code>make generate</code></td><td>Regenerate the Go database code after editing <code>db/queries/*.sql</code></td></tr>
     </tbody>
   </table></div>
@@ -543,10 +544,12 @@ make run-sync   <span class="c"># terminal 2</span></code></pre></div>
 
 <section id="tests">
   <h2>Tests</h2>
-  <div class="code"><pre><code>make test                              <span class="c"># everything</span>
+  <div class="code"><pre><code>make check                             <span class="c"># Go + acceptance tests, readable report</span>
+scripts/test.sh stages                 <span class="c"># one area in both suites</span>
+make test                              <span class="c"># Go tests only</span>
 go test ./internal/lead/...            <span class="c"># one package, no database needed</span>
 go test ./services/lead-api/api -run TestDuplicateSubmission -v   <span class="c"># one test by name</span></code></pre></div>
-  <p>Tests that touch the database start their own Postgres container, so they never touch your dev data.</p>
+  <p>The Go tests start their own Postgres container, so they never touch your dev data. The acceptance tests in <code>tests/acceptance/</code> are different: they are written in Python with pytest and test the <strong>running</strong> system from outside, the way a QA tester would. They send real signed requests, read Postgres to check what was stored, and wait for sheets-sync to write each change to the real sheet. Their lead IDs start with <code>qa-</code>.</p>
   <div class="table-wrap"><table>
     <thead><tr><th>Package</th><th>What it proves</th></tr></thead>
     <tbody>
@@ -565,7 +568,7 @@ go test ./services/lead-api/api -run TestDuplicateSubmission -v   <span class="c
   <ol class="steps">
     <li><strong>Write a failing test first</strong><p>Put it next to the code you will change. Run it and watch it fail for the reason you expect.</p></li>
     <li><strong>Make the smallest change that passes</strong><p>Changing SQL? Edit <code>db/queries</code>, run <code>make generate</code>. Changing the schema? Add a new file in <code>db/migrations</code>.</p></li>
-    <li><strong>Run the whole suite</strong><p><code>make test</code>, then <code>gofmt -l .</code> should print nothing.</p></li>
+    <li><strong>Run the whole suite</strong><p><code>make check</code> (with <code>make up</code> running), then <code>gofmt -l .</code> should print nothing.</p></li>
     <li><strong>Try it for real</strong><p><code>make up</code>, send a lead with <code>scripts/send-lead.sh</code>, look at the sheet.</p></li>
     <li><strong>Update the docs</strong><p>New setting: add it to <code>.env.example</code> and the README. New design decision: note it in <code>docs/STACK.md</code>.</p></li>
   </ol>

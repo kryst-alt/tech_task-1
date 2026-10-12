@@ -37,7 +37,7 @@ The isolation the system needs is between "accept the lead" and "talk to Google"
 | Google | `golang.org/x/oauth2`, `google.golang.org/api/sheets/v4` |
 | Logging | `log/slog` |
 | Config | Environment variables per service (`config.LoadAPI`, `config.LoadSync`), optional ones with defaults |
-| Tests | `testing`, `testcontainers-go` (Postgres module), Fiber `app.Test` |
+| Tests | `testing`, `testcontainers-go` (Postgres module), Fiber `app.Test`, `gotestsum` (readable output); pytest, requests and psycopg for acceptance tests |
 | Local run | Compose: `postgres:17`, lead-api, sheets-sync. Docker by default; the Makefile falls back to Podman when Docker is missing. |
 
 ## Data model
@@ -151,7 +151,7 @@ The `lead` package holds the decisions (create, update, no-op, conflict, allowed
 
 The endpoint tests drive the real Fiber app with `app.Test` against Postgres in testcontainers. `go test ./...` runs everything. It needs Docker running.
 
-`postman/` holds a black-box collection for demos: it signs requests like the partner and checks every requirement against the running containers. The Go tests stay the source of truth; a separate Python suite was considered and dropped because it would duplicate them in a second language.
+`postman/` holds a black-box collection for demos: it signs requests like the partner and checks every requirement against the running containers. `tests/acceptance/` is a pytest suite that drives the running containers over HTTP and checks Postgres read-only, including that sheets-sync wrote each change. It is in Python because QA teams commonly own black-box API tests in pytest, and because it can't import the Go code it checks. `scripts/test.sh` (`make check`) runs the Go tests through gotestsum's testdox format and then the acceptance tests, with a pass/fail summary.
 
 ## Configuration
 

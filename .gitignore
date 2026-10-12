@@ -8,3 +8,7 @@ client_secret_*.json
 
 # Postman environment with real secrets, made by scripts/postman-env.sh
 postman/local.postman_environment.json
+
+# Acceptance test environment
+tests/acceptance/.venv/
+__pycache__/

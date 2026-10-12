@@ -13,7 +13,7 @@ endif
 
 LOAD_ENV := set -a && . ./.env && set +a
 
-.PHONY: help setup up down logs ps db-up db-down run-api run-sync test generate
+.PHONY: help setup up down logs ps db-up db-down run-api run-sync test check generate
 
 help: ## List targets
 	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  %-10s %s\n", $$1, $$2}'
@@ -47,6 +47,9 @@ run-sync: ## Run sheets-sync locally (needs make db-up)
 
 test: ## Run all tests (starts its own Postgres container)
 	go test ./...
+
+check: ## Run Go and acceptance tests with a readable report (needs make up)
+	@scripts/test.sh
 
 generate: ## Regenerate sqlc code after editing db/queries
 	go tool sqlc generate

@@ -42,13 +42,10 @@ Design notes are in [docs/STACK.md](docs/STACK.md), and the requirements are in 
 - `openssl`, `curl`, and `python3` (setup reads the Google JSON with it)
 - Go 1.26 or newer, only for running tests or the services outside containers
 
-Docker on Fedora (other systems: <https://docs.docker.com/engine/install/>):
+Install Docker from <https://docs.docker.com/engine/install/>. On Linux, also add yourself to the `docker` group so Docker runs without sudo, then log out and back in:
 
 ```sh
-sudo dnf config-manager addrepo --from-repofile=https://download.docker.com/linux/fedora/docker-ce.repo
-sudo dnf install golang docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
-sudo systemctl enable --now docker
-sudo usermod -aG docker $USER   # then log out and back in, so docker runs without sudo
+sudo usermod -aG docker $USER
 ```
 
 The Makefile uses Docker when it is installed. Without Docker it falls back to Podman; then also run `systemctl --user enable --now podman.socket` so `make test` can reach it.
@@ -85,7 +82,7 @@ make run-sync   # terminal 2
 
 ## Google Sheets setup
 
-Done once per deployment.
+Done once.
 
 1. In the [Google Cloud console](https://console.cloud.google.com/), create a project and enable the **Google Sheets API** and **Google Drive API**.
 2. Under **OAuth consent screen**, choose External and add the Google account that should own the sheet under **Test users**.
@@ -142,8 +139,8 @@ The Go tests the brief asks for:
 
 [`postman/`](postman) holds a collection that signs each request the way the partner does and checks every response.
 
-1. Run `scripts/postman-env.sh`. It writes `postman/local.postman_environment.json` with the secrets from `.env`. Git ignores that file.
-2. In Postman, import `postman/lead-api.postman_collection.json` and the local environment, then select **Lead API (local, with secrets)**.
+1. Run `scripts/postman-env.sh`. It writes `postman/local.postman_environment.json` with the secrets from `.env`. Git ignores that file. The API address defaults to `http://localhost:8080`; to use another one, pass it: `scripts/postman-env.sh http://<host>:8080`.
+2. In Postman, import `postman/lead-api.postman_collection.json` and the local environment, then select **Lead API (http://localhost:8080)**.
 3. Run the collection. Every run uses new lead IDs, so it can be repeated.
 
 | Folder | Checks |
@@ -219,18 +216,6 @@ Starts Google sign-in. See [Google Sheets setup](#google-sheets-setup). The key 
 ### `GET /healthz`
 
 Returns `200 {"database":"ok","google":"ok"}`. `google` is `not_linked` before sign-in and `reauth_required` after Google revokes access. Returns 503 when Postgres is unreachable.
-
-## Running on a home server
-
-The stack can run on an always-on machine and be used from other devices. Compose restarts the containers after a reboot, and Postgres only listens on the server itself. Port 8080 is open to the network; every endpoint still needs the HMAC signature or the admin key.
-
-A private overlay network such as ZeroTier or Tailscale makes the server reachable from anywhere without opening router ports. Replace `<server-ip>` below with the server's address on that network.
-
-| Task | From another device |
-|---|---|
-| Call the API, use Postman | `http://<server-ip>:8080`. Generate the Postman environment on the server with `scripts/postman-env.sh http://<server-ip>:8080` and copy it over. |
-| Link or re-link Google | `ssh -L 8080:localhost:8080 <user>@<server-ip>`, then open `http://localhost:8080/auth/google?key=<ADMIN_API_KEY>` in the local browser. Google accepts only `localhost` or an HTTPS public domain as a redirect, so the tunnel makes the callback land on the server. |
-| Run the tests | `ssh <user>@<server-ip>`, then `make check` in the project folder. The acceptance tests read Postgres, which only the server can reach. |
 
 ## Configuration
 

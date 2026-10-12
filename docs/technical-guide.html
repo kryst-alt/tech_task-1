@@ -213,7 +213,7 @@ footer { margin-top: 56px; padding-top: 18px; border-top: 1px solid var(--line);
       <tr><td>A Google account</td><td>Owns the spreadsheet the leads are copied into</td><td></td></tr>
     </tbody>
   </table></div>
-  <div class="note"><p><strong>Installing Docker on Fedora:</strong> add Docker's repo with <code>sudo dnf config-manager addrepo --from-repofile=https://download.docker.com/linux/fedora/docker-ce.repo</code>, install <code>docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin</code>, run <code>sudo systemctl enable --now docker</code>, then <code>sudo usermod -aG docker $USER</code> and log out and back in. Other systems: <a href="https://docs.docker.com/engine/install/" target="_blank" rel="noopener">docs.docker.com/engine/install</a>.</p></div>
+  <div class="note"><p><strong>Installing Docker:</strong> follow <a href="https://docs.docker.com/engine/install/" target="_blank" rel="noopener">docs.docker.com/engine/install</a>. On Linux, then run <code>sudo usermod -aG docker $USER</code> and log out and back in, so Docker runs without sudo.</p></div>
   <div class="note"><p><strong>Using Podman instead?</strong> The Makefile falls back to Podman when Docker is not installed. The tests then reach Podman through its Docker-compatible socket; turn it on once with <code>systemctl --user enable --now podman.socket</code>.</p></div>
 
   <h3>Create the Google OAuth client (one time)</h3>
@@ -580,7 +580,7 @@ go test ./services/lead-api/api -run TestDuplicateSubmission -v   <span class="c
   <div class="table-wrap"><table>
     <thead><tr><th>Symptom</th><th>Cause and fix</th></tr></thead>
     <tbody>
-      <tr><td>Tests fail with "Cannot connect to the Docker daemon"</td><td>Docker is not running or your user can't reach it: <code>sudo systemctl enable --now docker</code> and make sure you are in the <code>docker</code> group (<code>groups</code>). With Podman: <code>systemctl --user enable --now podman.socket</code></td></tr>
+      <tr><td>Tests fail with "Cannot connect to the Docker daemon"</td><td>Docker is not running or your user can't reach it: <code>sudo systemctl enable --now docker</code> and make sure you are in the <code>docker</code> group (<code>groups</code>). "permission denied" on <code>docker.sock</code> right after joining the group means the session is older than the change: log out and back in. With Podman: <code>systemctl --user enable --now podman.socket</code></td></tr>
       <tr><td><code>make up</code> says port 8080 or 5432 is in use</td><td>Something else holds it. Set <code>PORT</code> or <code>DB_PORT</code> in <code>.env</code>. If you change <code>PORT</code>, update the redirect URI in Google Cloud too.</td></tr>
       <tr><td>Every lead gets 401</td><td>The sender and <code>.env</code> use different secrets, or the clock is more than 5 minutes off. The body must be signed byte for byte as sent.</td></tr>
       <tr><td>Google says <code>redirect_uri_mismatch</code></td><td>The URL in Google Cloud must match <code>GOOGLE_REDIRECT_URL</code> exactly, port included.</td></tr>

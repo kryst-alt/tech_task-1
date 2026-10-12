@@ -1,0 +1,649 @@
+<title>Lead Manager Handbook</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,750&family=Source+Sans+3:ital,wght@0,400;0,600;1,400&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: sticky table of contents on the left, one reading column on the right; stacks on phones. */
+:root {
+  --bg: #f6f7f9;
+  --surface: #ffffff;
+  --ink: #17202b;
+  --muted: #5a6573;
+  --line: #dde1e7;
+  --accent: #0b6e69;
+  --accent-soft: #e3f2f0;
+  --signal: #b35a00;
+  --signal-soft: #fbefe2;
+  --code-bg: #eef1f4;
+  --ok: #1d7a3e;
+  --bad: #b3261e;
+  --font-display: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --font-body: "Source Sans 3", "Segoe UI", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #11161c; --surface: #18202a; --ink: #e4e9ef; --muted: #9aa6b4; --line: #2a3542;
+    --accent: #4fc2b8; --accent-soft: #15302f; --signal: #f0a050; --signal-soft: #33261a;
+    --code-bg: #0d1218; --ok: #5cc584; --bad: #f08a80; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #11161c; --surface: #18202a; --ink: #e4e9ef; --muted: #9aa6b4; --line: #2a3542;
+  --accent: #4fc2b8; --accent-soft: #15302f; --signal: #f0a050; --signal-soft: #33261a;
+  --code-bg: #0d1218; --ok: #5cc584; --bad: #f08a80; color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; scroll-padding-top: 16px; }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+body {
+  margin: 0; background: var(--bg); color: var(--ink);
+  font: 400 17px/1.6 var(--font-body);
+}
+a { color: var(--accent); text-underline-offset: 2px; }
+a:focus-visible, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.shell {
+  max-width: 1180px; margin: 0 auto; padding-inline: 16px; padding-block: 32px 80px;
+  display: grid; grid-template-columns: 230px minmax(0, 1fr); gap: 48px;
+}
+nav.toc { position: sticky; top: calc(env(safe-area-inset-top, 0px) + 24px); align-self: start; max-height: calc(100vh - 48px); overflow-y: auto; }
+nav.toc p { font: 600 12px/1 var(--font-body); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin: 0 0 12px; }
+nav.toc ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+nav.toc a { display: block; padding: 4px 10px; border-radius: 6px; color: var(--ink); text-decoration: none; font-size: 15px; }
+nav.toc a:hover { background: var(--accent-soft); }
+nav.toc .group { margin-top: 14px; font: 600 11px/1 var(--font-body); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); padding: 0 10px 4px; }
+
+main { min-width: 0; max-width: 760px; }
+header.hero { padding-bottom: 28px; border-bottom: 1px solid var(--line); margin-bottom: 8px; }
+.eyebrow { font: 600 12px/1 var(--font-body); letter-spacing: .1em; text-transform: uppercase; color: var(--accent); }
+h1, h2, h3 { font-family: var(--font-display); text-wrap: balance; line-height: 1.15; }
+h1 { font-size: clamp(34px, 6vw, 52px); font-weight: 750; margin: 10px 0 14px; letter-spacing: -.02em; }
+h2 { font-size: 30px; font-weight: 750; margin: 0 0 14px; letter-spacing: -.01em; }
+h3 { font-size: 20px; font-weight: 600; margin: 28px 0 8px; }
+.lede { font-size: 20px; color: var(--muted); margin: 0; max-width: 62ch; }
+section { padding-block: 44px 8px; }
+section + section { border-top: 1px solid var(--line); }
+p, li { max-width: 68ch; }
+.part { margin-top: 56px; font: 600 12px/1 var(--font-body); letter-spacing: .1em; text-transform: uppercase; color: var(--signal); }
+
+code { font: 400 .88em/1.4 var(--font-mono); background: var(--code-bg); padding: 1px 5px; border-radius: 4px; }
+.code { position: relative; margin: 14px 0 18px; }
+.code pre { margin: 0; background: var(--code-bg); border: 1px solid var(--line); border-radius: 8px; padding: 14px 16px; overflow-x: auto; font: 400 14px/1.55 var(--font-mono); }
+.code pre code { background: none; padding: 0; font-size: inherit; }
+.code button {
+  position: absolute; top: 8px; right: 8px; font: 600 12px/1 var(--font-body); padding: 6px 9px;
+  border: 1px solid var(--line); border-radius: 6px; background: var(--surface); color: var(--muted); cursor: pointer;
+}
+.code button:hover { color: var(--accent); border-color: var(--accent); }
+.c { color: var(--muted); }
+
+.table-wrap { overflow-x: auto; margin: 14px 0 18px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); }
+table { border-collapse: collapse; width: 100%; font-size: 15px; }
+th, td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font-weight: 600; font-size: 13px; letter-spacing: .03em; color: var(--muted); background: var(--code-bg); }
+tr:last-child td { border-bottom: 0; }
+td code { white-space: nowrap; }
+
+.note { border-left: 3px solid var(--accent); background: var(--accent-soft); padding: 12px 16px; border-radius: 0 8px 8px 0; margin: 16px 0; }
+.note.warn { border-color: var(--signal); background: var(--signal-soft); }
+.note p { margin: 0; }
+.note strong { font-weight: 600; }
+
+ol.steps { counter-reset: step; list-style: none; padding: 0; margin: 18px 0; display: grid; gap: 22px; }
+ol.steps > li { counter-increment: step; position: relative; padding-left: 46px; max-width: none; }
+ol.steps > li::before {
+  content: counter(step); position: absolute; left: 0; top: 0; width: 30px; height: 30px; border-radius: 50%;
+  display: grid; place-items: center; font: 750 15px/1 var(--font-display); color: var(--accent); border: 2px solid var(--accent);
+}
+ol.steps > li > strong:first-child { display: block; font-size: 18px; margin-bottom: 2px; }
+
+/* Architecture diagram drawn with plain boxes so it works offline too. */
+.diagram { margin: 18px 0 22px; padding: 20px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); overflow-x: auto; }
+.lanes { display: grid; grid-template-columns: repeat(5, minmax(110px, 1fr)); align-items: center; gap: 8px; min-width: 640px; }
+.box { border: 1.5px solid var(--line); border-radius: 8px; padding: 10px; text-align: center; font-size: 14px; line-height: 1.35; background: var(--bg); }
+.box b { display: block; font-family: var(--font-display); font-size: 15px; }
+.box.svc { border-color: var(--accent); background: var(--accent-soft); }
+.box.ext { border-style: dashed; }
+.arrow { text-align: center; color: var(--muted); font: 400 12px/1.3 var(--font-mono); }
+.arrow::after { content: "⟶"; display: block; font-size: 22px; color: var(--accent); }
+.diagram figcaption { margin-top: 14px; font-size: 14px; color: var(--muted); }
+
+.tree { font: 400 14px/1.7 var(--font-mono); }
+.tree .row { display: grid; grid-template-columns: minmax(220px, auto) minmax(0, 1fr); gap: 16px; padding: 3px 0; border-bottom: 1px dashed var(--line); }
+.tree .row:last-child { border-bottom: 0; }
+.tree .row span:last-child { font-family: var(--font-body); font-size: 15px; color: var(--muted); }
+.tree .dir { color: var(--accent); font-weight: 600; }
+
+.flow { list-style: none; padding: 0; margin: 16px 0; display: grid; gap: 0; }
+.flow li { display: grid; grid-template-columns: 112px minmax(0, 1fr); gap: 14px; padding: 10px 0; border-bottom: 1px solid var(--line); max-width: none; }
+.flow li:last-child { border-bottom: 0; }
+.who { font: 600 12px/1.3 var(--font-mono); color: var(--accent); padding-top: 3px; }
+
+.status { display: inline-block; font: 600 12px/1 var(--font-mono); padding: 4px 7px; border-radius: 5px; }
+.s2 { color: var(--ok); background: color-mix(in srgb, var(--ok) 12%, transparent); }
+.s4 { color: var(--bad); background: color-mix(in srgb, var(--bad) 12%, transparent); }
+.s5 { color: var(--signal); background: var(--signal-soft); }
+
+.stages { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 14px 0; font: 600 14px/1 var(--font-mono); }
+.stages span { padding: 7px 11px; border-radius: 999px; border: 1.5px solid var(--accent); }
+.stages .end { background: var(--accent); color: var(--surface); }
+.stages .lost { border-color: var(--signal); color: var(--signal); }
+.stages i { color: var(--muted); font-style: normal; }
+
+dl.glossary { display: grid; grid-template-columns: minmax(140px, max-content) minmax(0, 1fr); gap: 10px 20px; }
+dl.glossary dt { font-weight: 600; }
+dl.glossary dd { margin: 0; color: var(--muted); }
+
+footer { margin-top: 56px; padding-top: 18px; border-top: 1px solid var(--line); color: var(--muted); font-size: 14px; }
+
+@media (max-width: 860px) {
+  .shell { grid-template-columns: minmax(0, 1fr); gap: 8px; padding-block: 20px 60px; }
+  nav.toc { position: static; max-height: none; border: 1px solid var(--line); border-radius: 10px; padding: 14px; background: var(--surface); }
+  nav.toc ol { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
+  .tree .row { grid-template-columns: minmax(0, 1fr); gap: 0; }
+  .flow li { grid-template-columns: minmax(0, 1fr); gap: 2px; }
+  dl.glossary { grid-template-columns: minmax(0, 1fr); gap: 2px; }
+  dl.glossary dd { margin-bottom: 10px; }
+  body { font-size: 16px; }
+}
+</style>
+
+<div class="shell">
+<nav class="toc" aria-label="Contents">
+  <p>Contents</p>
+  <ol>
+    <li><a href="#overview">What this is</a></li>
+    <li class="group">Get it running</li>
+    <li><a href="#prereqs">Before you start</a></li>
+    <li><a href="#install">Install and run</a></li>
+    <li><a href="#use">Using it day to day</a></li>
+    <li><a href="#no-containers">Running without containers</a></li>
+    <li><a href="#deploy">Deploying beyond your laptop</a></li>
+    <li class="group">How it works</li>
+    <li><a href="#architecture">The two services</a></li>
+    <li><a href="#files">Folder tour</a></li>
+    <li><a href="#flow-intake">Flow: a lead arrives</a></li>
+    <li><a href="#flow-sync">Flow: syncing to Sheets</a></li>
+    <li><a href="#flow-google">Flow: Google sign-in</a></li>
+    <li><a href="#data">The database</a></li>
+    <li><a href="#concepts">Concepts explained</a></li>
+    <li class="group">Reference</li>
+    <li><a href="#api">API</a></li>
+    <li><a href="#config">Configuration</a></li>
+    <li><a href="#tests">Tests</a></li>
+    <li><a href="#contribute">Making a change</a></li>
+    <li><a href="#trouble">Troubleshooting</a></li>
+    <li><a href="#next">Limits and next steps</a></li>
+    <li><a href="#glossary">Glossary</a></li>
+  </ol>
+</nav>
+
+<main>
+<header class="hero" id="overview">
+  <div class="eyebrow">Lead Management and Automation System · proof of concept</div>
+  <h1>Lead Manager Handbook</h1>
+  <p class="lede">A partner sends us sales leads over HTTP. We check that each request really came from them, store every lead once, track it through the deal stages, and copy it into a Google Sheet that stays signed in.</p>
+</header>
+
+<section style="padding-top:28px">
+  <h3 style="margin-top:0">What it does, in five lines</h3>
+  <ul>
+    <li><strong>Receives leads</strong> at <code>POST /v1/leads</code> with an id, name, email, company and source.</li>
+    <li><strong>Rejects forged requests.</strong> Every request carries an HMAC signature made with a secret only we and the partner know.</li>
+    <li><strong>Never duplicates.</strong> If the id or the email is already stored, the existing lead is updated instead of creating a second one.</li>
+    <li><strong>Tracks deal stages</strong> in Postgres: New, Qualified, Proposal, then Won or Lost.</li>
+    <li><strong>Mirrors every lead into Google Sheets</strong> after each add or update, using a Google sign-in done once by an admin.</li>
+  </ul>
+  <p>Built with Go 1.26, the Fiber web framework, PostgreSQL 17 and the official Google Sheets client. Everything runs in Docker containers.</p>
+</section>
+
+<p class="part">Part 1 · Get it running</p>
+
+<section id="prereqs">
+  <h2>Before you start</h2>
+  <p>You need these on your machine. Versions are the ones the project was built and tested with.</p>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Tool</th><th>Why</th><th>Check with</th></tr></thead>
+    <tbody>
+      <tr><td>Docker Engine with the Compose plugin (Podman also works)</td><td>Runs Postgres and both services, and the test database</td><td><code>docker compose version</code></td></tr>
+      <tr><td>Go 1.26+</td><td>Builds the code and runs the tests</td><td><code>go version</code></td></tr>
+      <tr><td>make, openssl, curl, python3</td><td>Setup script, request signing, demo requests</td><td><code>make --version</code></td></tr>
+      <tr><td>A Google account</td><td>Owns the spreadsheet the leads are copied into</td><td></td></tr>
+    </tbody>
+  </table></div>
+  <div class="note"><p><strong>Installing Docker on Fedora:</strong> add Docker's repo with <code>sudo dnf config-manager addrepo --from-repofile=https://download.docker.com/linux/fedora/docker-ce.repo</code>, install <code>docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin</code>, run <code>sudo systemctl enable --now docker</code>, then <code>sudo usermod -aG docker $USER</code> and log out and back in. Other systems: <a href="https://docs.docker.com/engine/install/" target="_blank" rel="noopener">docs.docker.com/engine/install</a>.</p></div>
+  <div class="note"><p><strong>Using Podman instead?</strong> The Makefile falls back to Podman when Docker is not installed. The tests then reach Podman through its Docker-compatible socket; turn it on once with <code>systemctl --user enable --now podman.socket</code>.</p></div>
+
+  <h3>Create the Google OAuth client (one time)</h3>
+  <p>The app needs its own "OAuth client" so Google knows who is asking for access.</p>
+  <ol>
+    <li>Open <a href="https://console.cloud.google.com/" target="_blank" rel="noopener">Google Cloud console</a> and create or pick a project.</li>
+    <li>Under <em>APIs &amp; Services → Library</em>, enable <strong>Google Sheets API</strong> and <strong>Google Drive API</strong>.</li>
+    <li>Under <em>OAuth consent screen</em>, choose <em>External</em>, fill in the app name and your email, and add the Google account that will own the sheet as a <strong>test user</strong>.</li>
+    <li>Under <em>Credentials → Create credentials → OAuth client ID</em>, pick <strong>Web application</strong> and add this redirect URI: <code>http://localhost:8080/auth/google/callback</code></li>
+    <li>Download the JSON. It is named <code>client_secret_….json</code>. Put it in the project root. Git ignores it.</li>
+  </ol>
+  <div class="note warn"><p><strong>Never commit that JSON or the <code>.env</code> file.</strong> Both hold secrets. <code>.gitignore</code> already covers them; check <code>git status</code> before every commit anyway.</p></div>
+</section>
+
+<section id="install">
+  <h2>Install and run</h2>
+  <ol class="steps">
+    <li><strong>Clone the repo</strong>
+      <div class="code"><pre><code>git clone https://github.com/kryst-alt/tech_task-1.git
+cd tech_task-1</code></pre></div></li>
+    <li><strong>Run setup</strong>
+      <p>Checks your tools, creates <code>.env</code> from <code>.env.example</code>, generates the three secrets, and copies the Google client id and secret out of the JSON. It is safe to run again: it only fills values that are empty.</p>
+      <div class="code"><pre><code>make setup</code></pre></div></li>
+    <li><strong>Start everything</strong>
+      <p>Builds both service images and starts three containers: <code>db</code>, <code>lead-api</code> and <code>sheets-sync</code>. The first build downloads Go modules and takes a few minutes.</p>
+      <div class="code"><pre><code>make up
+make ps   <span class="c"># all three should say "healthy" or "running"</span></code></pre></div></li>
+    <li><strong>Link Google (one time)</strong>
+      <p>Open the sign-in link that <code>make setup</code> printed. It looks like this:</p>
+      <div class="code"><pre><code>http://localhost:8080/auth/google?key=&lt;ADMIN_API_KEY from .env&gt;</code></pre></div>
+      <p>Sign in with the test-user account and allow access. You land on a page that says <code>Connected &lt;email&gt;. Leads sync to &lt;sheet link&gt;</code>. The spreadsheet is named <strong>Leads</strong> and lives in that account's Drive.</p></li>
+    <li><strong>Send a lead</strong>
+      <p>The helper script signs the request exactly like the partner would.</p>
+      <div class="code"><pre><code>scripts/send-lead.sh '{"id":"p-1","name":"Ada","email":"ada@example.com","company":"Acme","source":"partner"}'</code></pre></div>
+      <p>You get <span class="status s2">201</span> and <code>"result":"create"</code>. Within a couple of seconds a row appears in the sheet.</p></li>
+    <li><strong>Check health</strong>
+      <div class="code"><pre><code>curl localhost:8080/healthz
+<span class="c"># {"database":"ok","google":"ok"}</span></code></pre></div></li>
+  </ol>
+  <p>To stop: <code>make down</code>. Data stays in a container volume, so the next <code>make up</code> picks up where you left off, Google link included.</p>
+</section>
+
+<section id="use">
+  <h2>Using it day to day</h2>
+  <h3>Make commands</h3>
+  <p><code>make help</code> prints this list.</p>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Command</th><th>What it does</th></tr></thead>
+    <tbody>
+      <tr><td><code>make setup</code></td><td>Create <code>.env</code> with generated secrets and import the Google client JSON</td></tr>
+      <tr><td><code>make up</code></td><td>Build and start db, lead-api and sheets-sync in containers</td></tr>
+      <tr><td><code>make down</code></td><td>Stop all containers. Data is kept.</td></tr>
+      <tr><td><code>make logs</code></td><td>Follow the logs of both services</td></tr>
+      <tr><td><code>make ps</code></td><td>Show container status</td></tr>
+      <tr><td><code>make db-up</code> / <code>make db-down</code></td><td>Start or stop only Postgres, for running the services with <code>go run</code></td></tr>
+      <tr><td><code>make run-api</code> / <code>make run-sync</code></td><td>Run one service from source (needs <code>make db-up</code>)</td></tr>
+      <tr><td><code>make test</code></td><td>Run every test. Starts its own throwaway Postgres.</td></tr>
+      <tr><td><code>make generate</code></td><td>Regenerate the Go database code after editing <code>db/queries/*.sql</code></td></tr>
+    </tbody>
+  </table></div>
+
+  <h3>Common tasks</h3>
+  <p><strong>Update a lead.</strong> Send the same id or email again with different fields. You get <span class="status s2">200</span> and <code>"result":"update"</code>, and the same row in the sheet is rewritten.</p>
+  <p><strong>Move a lead to the next stage.</strong></p>
+  <div class="code"><pre><code>curl -X PATCH localhost:8080/v1/leads/p-1/stage \
+  -H "Authorization: Bearer $(grep ^ADMIN_API_KEY= .env | cut -d= -f2-)" \
+  -d '{"stage":"qualified"}'</code></pre></div>
+  <p><strong>See a forged request get rejected.</strong> Pass a wrong secret as the second argument:</p>
+  <div class="code"><pre><code>scripts/send-lead.sh '{"id":"p-2","name":"Eve","email":"eve@example.com","company":"X","source":"web"}' wrong-secret
+<span class="c"># HTTP 401</span></code></pre></div>
+  <p><strong>Look inside the database.</strong></p>
+  <div class="code"><pre><code>docker compose exec db psql -U leads -c 'select external_id, email, stage, version from leads'</code></pre></div>
+</section>
+
+<section id="no-containers">
+  <h2>Running without containers</h2>
+  <p>Handy when you are changing Go code and want fast restarts. Postgres still runs in a container.</p>
+  <div class="code"><pre><code>make db-up
+make run-api    <span class="c"># terminal 1</span>
+make run-sync   <span class="c"># terminal 2</span></code></pre></div>
+  <p>Both commands load <code>.env</code> first. Each service applies database migrations on start-up, so there is no separate migrate step. If both start together, a Postgres lock makes one wait for the other.</p>
+</section>
+
+<section id="deploy">
+  <h2>Deploying beyond your laptop</h2>
+  <p>The project is a proof of concept and has only been run locally. Moving it to a server needs these changes:</p>
+  <ol>
+    <li><strong>Postgres.</strong> Point <code>DATABASE_URL</code> at a managed or self-hosted Postgres 15+ (Neon, Supabase and Render all have free tiers). The <code>citext</code> extension must be allowed.</li>
+    <li><strong>Images.</strong> Build the two images from <code>services/lead-api/Dockerfile</code> and <code>services/sheets-sync/Dockerfile</code> (build context is the repo root) and run them anywhere that runs containers. Run exactly one <code>sheets-sync</code>.</li>
+    <li><strong>HTTPS and redirect URL.</strong> Put <code>lead-api</code> behind HTTPS. Set <code>GOOGLE_REDIRECT_URL</code> to <code>https://your-host/auth/google/callback</code> and add the same URL to the OAuth client in Google Cloud.</li>
+    <li><strong>Secrets.</strong> Pass the values from <code>.env</code> as environment variables through the host's secret store. Give the partner <code>LEAD_SIGNING_SECRET</code> over a private channel.</li>
+    <li><strong>Publish the consent screen.</strong> While it is in <em>Testing</em>, Google expires the refresh token after 7 days and someone must sign in again. Publishing removes that limit.</li>
+  </ol>
+</section>
+
+<p class="part">Part 2 · How it works</p>
+
+<section id="architecture">
+  <h2>The two services</h2>
+  <p>The system is two small programs that share one database. They never call each other.</p>
+  <figure class="diagram" style="margin-inline:0">
+    <div class="lanes">
+      <div class="box ext"><b>Partner</b>sends signed leads</div>
+      <div class="arrow">POST /v1/leads</div>
+      <div class="box svc"><b>lead-api</b>checks signature, saves lead, queues it</div>
+      <div class="arrow">writes</div>
+      <div class="box"><b>Postgres</b>leads · lead_sync · google_credentials</div>
+      <div class="box ext"><b>Admin</b>stage changes, Google link</div>
+      <div class="arrow">PATCH · /auth/google</div>
+      <div class="box svc"><b>sheets-sync</b>every 2 s, copies queued leads</div>
+      <div class="arrow">Sheets API</div>
+      <div class="box ext"><b>Google Sheet</b>"Leads" in the admin's Drive</div>
+    </div>
+    <figcaption>Top row: requests come in and are saved. Bottom row: sheets-sync reads the queue from Postgres and writes to Google. The <code>lead_sync</code> table is the hand-off between the two.</figcaption>
+  </figure>
+  <h3>Why two services and not more</h3>
+  <ul>
+    <li><strong>The partner never waits for Google.</strong> Google can be slow or down. lead-api saves the lead and answers in milliseconds; sheets-sync deals with Google on its own time.</li>
+    <li><strong>Nothing is lost if one side is down.</strong> If sheets-sync stops, leads pile up in the queue and sync when it comes back. If lead-api stops, sheets-sync finishes what is queued.</li>
+    <li><strong>No more than two,</strong> because splitting further (a separate "stages" service, a separate "auth" service) would add a network call to every request and buy nothing at this size.</li>
+  </ul>
+</section>
+
+<section id="files">
+  <h2>Folder tour</h2>
+  <p>Read top to bottom: entry points first, then shared code, then database, then support files. <code>internal/</code> is a Go convention: code there can only be imported from inside this repo.</p>
+  <div class="diagram tree">
+    <div class="row"><span class="dir">services/lead-api/</span><span>The HTTP service.</span></div>
+    <div class="row"><span>&nbsp;&nbsp;main.go</span><span>Loads config, opens the database, starts Fiber, shuts down cleanly on Ctrl-C.</span></div>
+    <div class="row"><span>&nbsp;&nbsp;Dockerfile</span><span>Two-stage build: compile with Go, run on a small Alpine image as a non-root user.</span></div>
+    <div class="row"><span>&nbsp;&nbsp;api/api.go</span><span>Lists every route and the <code>Deps</code> it needs. Also <code>/healthz</code>.</span></div>
+    <div class="row"><span>&nbsp;&nbsp;api/leads.go</span><span><code>POST /v1/leads</code>: signature check, JSON validation, calls the store.</span></div>
+    <div class="row"><span>&nbsp;&nbsp;api/stage.go</span><span><code>PATCH /v1/leads/:id/stage</code> and the admin-key check.</span></div>
+    <div class="row"><span>&nbsp;&nbsp;api/auth.go</span><span>Google sign-in start and callback.</span></div>
+    <div class="row"><span>&nbsp;&nbsp;api/*_test.go</span><span>HTTP tests against a real Postgres.</span></div>
+    <div class="row"><span class="dir">services/sheets-sync/</span><span>The background worker.</span></div>
+    <div class="row"><span>&nbsp;&nbsp;main.go</span><span>Loads config, opens the database, runs the sync loop until stopped.</span></div>
+    <div class="row"><span class="dir">internal/config/</span><span>Reads environment variables for each service and reports every mistake at once.</span></div>
+    <div class="row"><span class="dir">internal/lead/</span><span>Pure business rules, no database. <code>stage.go</code> holds the allowed stage moves; <code>upsert.go</code> decides create, update, unchanged or conflict.</span></div>
+    <div class="row"><span class="dir">internal/store/</span><span>Everything that touches Postgres.</span></div>
+    <div class="row"><span>&nbsp;&nbsp;pool.go</span><span>Connects and runs migrations.</span></div>
+    <div class="row"><span>&nbsp;&nbsp;upsert.go · stage.go</span><span>Save a lead or change its stage inside a transaction.</span></div>
+    <div class="row"><span>&nbsp;&nbsp;*.sql.go · models.go · db.go</span><span>Generated by sqlc from <code>db/queries</code>. Do not edit by hand.</span></div>
+    <div class="row"><span class="dir">internal/sheets/</span><span>Everything that touches Google.</span></div>
+    <div class="row"><span>&nbsp;&nbsp;google.go</span><span>OAuth setup, linking an account, encrypting the refresh token, creating the sheet, writing a row.</span></div>
+    <div class="row"><span>&nbsp;&nbsp;worker.go</span><span>The sync loop: find queued leads, write them, record success or schedule a retry.</span></div>
+    <div class="row"><span class="dir">internal/testdb/</span><span>Test helper. Starts a throwaway Postgres container and empties tables between tests.</span></div>
+    <div class="row"><span class="dir">db/migrations/</span><span>Schema changes, applied in order by goose at start-up.</span></div>
+    <div class="row"><span class="dir">db/queries/</span><span>Every SQL query, with a <code>-- name:</code> comment that sqlc turns into a Go function.</span></div>
+    <div class="row"><span>db/embed.go</span><span>Bakes the migrations into the binary so the image needs no extra files.</span></div>
+    <div class="row"><span class="dir">scripts/</span><span><code>setup.sh</code> (behind <code>make setup</code>) and <code>send-lead.sh</code> (signs and sends a test lead).</span></div>
+    <div class="row"><span class="dir">docs/</span><span><code>PROJECT.md</code> is the requirements; <code>STACK.md</code> is the design decisions. This handbook lives here too.</span></div>
+    <div class="row"><span>compose.yaml</span><span>Defines the three containers and how they connect.</span></div>
+    <div class="row"><span>Makefile</span><span>Short names for the commands above. Uses Docker, or Podman when Docker is missing.</span></div>
+    <div class="row"><span>.env.example</span><span>Every setting with a comment. Copied to <code>.env</code> by setup.</span></div>
+    <div class="row"><span>sqlc.yaml · go.mod</span><span>sqlc settings; Go module and pinned library versions.</span></div>
+    <div class="row"><span class="dir">.claude/</span><span>Instructions and work journal for the AI assistant. Not needed to run the app.</span></div>
+  </div>
+  <div class="note"><p><strong>Where should new code go?</strong> A rule about leads that needs no database goes in <code>internal/lead</code>. A new query goes in <code>db/queries</code>, then <code>make generate</code>. A new endpoint goes in <code>services/lead-api/api</code>.</p></div>
+</section>
+
+<section id="flow-intake">
+  <h2>Flow: a lead arrives</h2>
+  <p>What happens, in order, when the partner calls <code>POST /v1/leads</code>.</p>
+  <ol class="flow">
+    <li><span class="who">partner</span><span>Builds the JSON body, takes the current Unix time, and computes <code>HMAC-SHA256(secret, timestamp + "." + body)</code>. Sends the body with <code>X-Timestamp</code> and <code>X-Signature: sha256=&lt;hex&gt;</code>.</span></li>
+    <li><span class="who">lead-api</span><span>Rejects with <span class="status s4">401</span> if the timestamp is more than 5 minutes off (stops replays of old requests) or the signature does not match. The check runs on the raw bytes received, before any parsing.</span></li>
+    <li><span class="who">lead-api</span><span>Parses the JSON, trims spaces, checks all five fields are present and the email is valid. Otherwise <span class="status s4">422</span>.</span></li>
+    <li><span class="who">store</span><span>Opens a transaction and locks any stored lead with the same id and any with the same email (email comparison ignores case).</span></li>
+    <li><span class="who">lead.Decide</span><span>No match: <strong>create</strong>. Match with identical fields: <strong>unchanged</strong>. Match with different fields: <strong>update</strong>. Id matches one lead and email another: <strong>conflict</strong>, <span class="status s4">409</span>.</span></li>
+    <li><span class="who">store</span><span>Inserts or updates the row, adds 1 to its <code>version</code>, and makes sure it has a <code>lead_sync</code> row. Commits.</span></li>
+    <li><span class="who">lead-api</span><span>Answers <span class="status s2">201</span> for create or <span class="status s2">200</span> for update and unchanged. Google is not involved yet.</span></li>
+  </ol>
+  <div class="note"><p><strong>Two identical requests at the same moment?</strong> Both may see "no match" and both try to insert. Postgres's unique index lets one win; the other gets a unique-violation error, and the store retries once. On the retry it finds the lead and turns into an update. A test forces this exact race.</p></div>
+</section>
+
+<section id="flow-sync">
+  <h2>Flow: syncing to Sheets</h2>
+  <p>sheets-sync repeats this loop every <code>SYNC_INTERVAL</code> (2 seconds by default).</p>
+  <ol class="flow">
+    <li><span class="who">find work</span><span>Selects up to 50 leads whose <code>version</code> is greater than <code>lead_sync.synced_version</code> and whose retry time has passed.</span></li>
+    <li><span class="who">get sheet</span><span>Loads the Google credentials, decrypts the refresh token, and creates the "Leads" spreadsheet with its header row if there is none yet. If nobody has linked Google, it waits quietly.</span></li>
+    <li><span class="who">write row</span><span>Reads column A to find the lead's row by id. Rewrites that row if found, appends a new one otherwise. Columns: Lead ID, Name, Email, Company, Source, Stage, Created, Updated.</span></li>
+    <li><span class="who">success</span><span>Sets <code>synced_version</code> to the version just written. If the lead changed again in the meantime, its version is now higher, so the next loop picks it up.</span></li>
+    <li><span class="who">failure</span><span>Records the error and waits before retrying: 2 s, 4 s, 8 s and so on, never more than 15 minutes. Other leads keep syncing.</span></li>
+    <li><span class="who">access revoked</span><span>If Google answers <code>invalid_grant</code>, the link is marked <code>needs_reauth</code>, <code>/healthz</code> shows <code>reauth_required</code>, and syncing waits until an admin signs in again. Queued leads are not lost.</span></li>
+  </ol>
+  <p>No database transaction is held open while talking to Google, so a slow Google never blocks new leads from being saved. A test checks this.</p>
+</section>
+
+<section id="flow-google">
+  <h2>Flow: Google sign-in</h2>
+  <p>Done once by an admin. After that the app keeps itself signed in.</p>
+  <ol class="flow">
+    <li><span class="who">admin</span><span>Opens <code>/auth/google?key=&lt;ADMIN_API_KEY&gt;</code>. The key is in the URL because a browser link cannot send an Authorization header.</span></li>
+    <li><span class="who">lead-api</span><span>Sets a random <code>state</code> cookie and redirects to Google, asking for <strong>offline access</strong> (so Google returns a refresh token) and the <code>drive.file</code> scope (the app can only see files it created).</span></li>
+    <li><span class="who">Google</span><span>Shows the consent screen, then redirects back to <code>/auth/google/callback</code> with a one-time code and the same <code>state</code>.</span></li>
+    <li><span class="who">lead-api</span><span>Checks <code>state</code> matches the cookie (blocks forged callbacks), trades the code for tokens, and reads the account email.</span></li>
+    <li><span class="who">lead-api</span><span>Encrypts the refresh token with AES-256-GCM using <code>TOKEN_ENCRYPTION_KEY</code> and saves it. If a <em>different</em> account is linked, it forgets the old sheet and queues every lead for the new one.</span></li>
+    <li><span class="who">sheets-sync</span><span>From then on, uses the refresh token to get a fresh access token whenever the old one expires (about every hour). No browser needed.</span></li>
+  </ol>
+</section>
+
+<section id="data">
+  <h2>The database</h2>
+  <p>Three tables. The schema lives in <code>db/migrations/</code>.</p>
+  <h3><code>leads</code> — one row per lead</h3>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Column</th><th>Type</th><th>Meaning</th></tr></thead>
+    <tbody>
+      <tr><td><code>id</code></td><td>uuid</td><td>Our own id, generated by Postgres</td></tr>
+      <tr><td><code>external_id</code></td><td>text, unique</td><td>The partner's id (the <code>id</code> field they send)</td></tr>
+      <tr><td><code>email</code></td><td>citext, unique</td><td>Case-insensitive text, so <code>Ada@X.com</code> and <code>ada@x.com</code> are the same lead</td></tr>
+      <tr><td><code>name</code>, <code>company</code>, <code>source</code></td><td>text</td><td>As sent by the partner</td></tr>
+      <tr><td><code>stage</code></td><td>enum</td><td><code>new</code>, <code>qualified</code>, <code>proposal</code>, <code>won</code>, <code>lost</code>. Starts at <code>new</code>.</td></tr>
+      <tr><td><code>version</code></td><td>bigint</td><td>Goes up by 1 on every change. Drives syncing.</td></tr>
+      <tr><td><code>created_at</code>, <code>updated_at</code></td><td>timestamptz</td><td>When the lead was first saved and last changed</td></tr>
+    </tbody>
+  </table></div>
+  <h3><code>lead_sync</code> — the sync queue</h3>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Column</th><th>Meaning</th></tr></thead>
+    <tbody>
+      <tr><td><code>lead_id</code></td><td>Which lead</td></tr>
+      <tr><td><code>synced_version</code></td><td>The last version written to the sheet. Lower than <code>leads.version</code> means "needs syncing".</td></tr>
+      <tr><td><code>attempts</code>, <code>next_attempt_at</code>, <code>last_error</code></td><td>Retry bookkeeping after a failed write</td></tr>
+    </tbody>
+  </table></div>
+  <h3><code>google_credentials</code> — the single Google link</h3>
+  <p>At most one row. Holds the linked account email, the encrypted refresh token, the spreadsheet id, and the <code>needs_reauth</code> flag.</p>
+  <h3>Deal stages</h3>
+  <div class="stages" aria-label="Stage order">
+    <span>new</span><i>→</i><span>qualified</span><i>→</i><span>proposal</span><i>→</i><span class="end">won</span>
+  </div>
+  <p>From any of <code>new</code>, <code>qualified</code> or <code>proposal</code> a lead can also move to <span class="stages" style="display:inline-flex;margin:0"><span class="lost">lost</span></span>. <code>won</code> and <code>lost</code> are final. Skipping a stage or going backwards returns <span class="status s4">409</span>. Leads sent by the partner never change the stage; only the admin endpoint does.</p>
+</section>
+
+<section id="concepts">
+  <h2>Concepts explained</h2>
+  <h3>HMAC signature</h3>
+  <p>A fingerprint of the message made with a shared secret. Anyone can read the body, but without the secret nobody can produce a fingerprint that matches it. Changing one character of the body changes the fingerprint completely. The timestamp is part of what gets signed, so an attacker cannot resend an old request later. We compare fingerprints with <code>hmac.Equal</code>, which takes the same time whether the first or last byte differs, so timing gives nothing away.</p>
+  <h3>Upsert</h3>
+  <p>"Update or insert." Look for an existing record; update it if found, insert it if not. Here a match can come from either the id or the email.</p>
+  <h3>Row locks and transactions</h3>
+  <p><code>SELECT … FOR UPDATE</code> inside a transaction stops two requests from editing the same lead at once. The second waits until the first commits.</p>
+  <h3>Version numbers instead of a message queue</h3>
+  <p>Rather than pushing "sync this" messages somewhere, each lead has a counter. The worker syncs any lead whose counter is ahead of what it last wrote. Ten quick edits to one lead become one sheet write of the latest data.</p>
+  <h3>Exponential backoff</h3>
+  <p>After each failure, wait twice as long as last time before retrying. It stops a broken Google connection from being hammered. The cap keeps the wait reasonable.</p>
+  <h3>OAuth refresh tokens</h3>
+  <p>An access token lets the app call Google for about an hour. A refresh token lets it get new access tokens without a person signing in. We store the refresh token encrypted, so a database leak alone does not hand out access to the Google account.</p>
+  <h3>sqlc</h3>
+  <p>You write plain SQL in <code>db/queries/*.sql</code>; <code>make generate</code> turns each query into a typed Go function in <code>internal/store</code>. Typos in column names fail at generate time, not in production.</p>
+  <h3>Migrations with goose</h3>
+  <p>Each file in <code>db/migrations</code> is one schema change. goose records which ones have run and applies the rest at start-up. Never edit a migration that has already run; add a new file instead.</p>
+  <h3>Testcontainers</h3>
+  <p>Tests start a real Postgres in a container, run, and throw it away. Tests hit the same database engine as production, so there are no fake database objects to keep in sync.</p>
+</section>
+
+<p class="part">Part 3 · Reference</p>
+
+<section id="api">
+  <h2>API</h2>
+  <h3><code>POST /v1/leads</code></h3>
+  <div class="code"><pre><code>{"id": "p-1", "name": "Ada", "email": "ada@example.com", "company": "Acme", "source": "partner"}</code></pre></div>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Header</th><th>Value</th></tr></thead>
+    <tbody>
+      <tr><td><code>X-Timestamp</code></td><td>Current Unix time in seconds</td></tr>
+      <tr><td><code>X-Signature</code></td><td><code>sha256=</code> + hex HMAC-SHA256 of <code>&lt;timestamp&gt;.&lt;raw body&gt;</code>, keyed with <code>LEAD_SIGNING_SECRET</code></td></tr>
+    </tbody>
+  </table></div>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Status</th><th>When</th></tr></thead>
+    <tbody>
+      <tr><td><span class="status s2">201</span> create</td><td>New lead</td></tr>
+      <tr><td><span class="status s2">200</span> update</td><td>Id or email matched and a field changed</td></tr>
+      <tr><td><span class="status s2">200</span> unchanged</td><td>Matched and nothing changed</td></tr>
+      <tr><td><span class="status s4">401</span></td><td>Signature missing, wrong, or timestamp more than 5 minutes off</td></tr>
+      <tr><td><span class="status s4">409</span></td><td>Id belongs to one stored lead, email to another</td></tr>
+      <tr><td><span class="status s4">422</span></td><td>Not JSON, a field missing, or invalid email</td></tr>
+    </tbody>
+  </table></div>
+
+  <h3><code>PATCH /v1/leads/{id}/stage</code></h3>
+  <p><code>{id}</code> is the partner's id. Needs <code>Authorization: Bearer &lt;ADMIN_API_KEY&gt;</code>. Body: <code>{"stage":"qualified"}</code>.</p>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Status</th><th>When</th></tr></thead>
+    <tbody>
+      <tr><td><span class="status s2">200</span></td><td>Moved. Returns <code>{"stage":"qualified"}</code>.</td></tr>
+      <tr><td><span class="status s4">401</span></td><td>Token missing or wrong</td></tr>
+      <tr><td><span class="status s4">404</span></td><td>No lead with that id</td></tr>
+      <tr><td><span class="status s4">409</span></td><td>Move not allowed from the current stage</td></tr>
+      <tr><td><span class="status s4">422</span></td><td>Unknown stage or body not JSON</td></tr>
+    </tbody>
+  </table></div>
+
+  <h3><code>GET /auth/google?key=&lt;ADMIN_API_KEY&gt;</code></h3>
+  <p>Starts Google sign-in. See <a href="#flow-google">the sign-in flow</a>.</p>
+
+  <h3><code>GET /healthz</code></h3>
+  <p><span class="status s2">200</span> <code>{"database":"ok","google":"ok"}</code>. <code>google</code> is <code>not_linked</code> before sign-in and <code>reauth_required</code> after Google revokes access. <span class="status s5">503</span> when Postgres is unreachable.</p>
+</section>
+
+<section id="config">
+  <h2>Configuration</h2>
+  <p>All settings are environment variables, read from <code>.env</code>. If any are wrong, the service lists every problem at start-up and exits.</p>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Variable</th><th>Used by</th><th>Default</th><th>Notes</th></tr></thead>
+    <tbody>
+      <tr><td><code>DATABASE_URL</code></td><td>both</td><td>required</td><td>Postgres connection string. Compose overrides it to reach the <code>db</code> container.</td></tr>
+      <tr><td><code>GOOGLE_CLIENT_ID</code></td><td>both</td><td>required</td><td>From the client JSON</td></tr>
+      <tr><td><code>GOOGLE_CLIENT_SECRET</code></td><td>both</td><td>required</td><td>From the client JSON</td></tr>
+      <tr><td><code>TOKEN_ENCRYPTION_KEY</code></td><td>both</td><td>required</td><td>32 bytes, base64. <code>openssl rand -base64 32</code>. Changing it makes the stored token unreadable; sign in again.</td></tr>
+      <tr><td><code>LEAD_SIGNING_SECRET</code></td><td>lead-api</td><td>required</td><td>32+ characters, shared with the partner</td></tr>
+      <tr><td><code>ADMIN_API_KEY</code></td><td>lead-api</td><td>required</td><td>32+ characters</td></tr>
+      <tr><td><code>PORT</code></td><td>lead-api</td><td><code>8080</code></td><td>Also changes the default redirect URL</td></tr>
+      <tr><td><code>DB_PORT</code></td><td>compose</td><td><code>5432</code></td><td>Host port for Postgres, if 5432 is taken</td></tr>
+      <tr><td><code>LOG_LEVEL</code></td><td>both</td><td><code>info</code></td><td><code>debug</code>, <code>info</code>, <code>warn</code>, <code>error</code></td></tr>
+      <tr><td><code>SIGNATURE_TOLERANCE</code></td><td>lead-api</td><td><code>5m</code></td><td>How far the timestamp may drift</td></tr>
+      <tr><td><code>GOOGLE_REDIRECT_URL</code></td><td>lead-api</td><td><code>http://localhost:${PORT}/auth/google/callback</code></td><td>Must match the OAuth client exactly</td></tr>
+      <tr><td><code>SYNC_INTERVAL</code></td><td>sheets-sync</td><td><code>2s</code></td><td>Pause between sync loops</td></tr>
+      <tr><td><code>SYNC_BATCH_SIZE</code></td><td>sheets-sync</td><td><code>50</code></td><td>Leads per loop, 1 to 500</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section id="tests">
+  <h2>Tests</h2>
+  <div class="code"><pre><code>make test                              <span class="c"># everything</span>
+go test ./internal/lead/...            <span class="c"># one package, no database needed</span>
+go test ./services/lead-api/api -run TestDuplicateSubmission -v   <span class="c"># one test by name</span></code></pre></div>
+  <p>Tests that touch the database start their own Postgres container, so they never touch your dev data.</p>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Package</th><th>What it proves</th></tr></thead>
+    <tbody>
+      <tr><td><code>services/lead-api/api</code></td><td>Bad, missing, stale and tampered signatures get 401. A duplicate creates nothing new. An existing email updates the stored lead. Concurrent duplicates make one lead. Conflicts, bad input, stage moves, admin auth, sign-in state checks.</td></tr>
+      <tr><td><code>internal/lead</code></td><td>Every allowed and forbidden stage move. Every create / update / unchanged / conflict decision.</td></tr>
+      <tr><td><code>internal/store</code></td><td>The insert race resolves into one lead.</td></tr>
+      <tr><td><code>internal/sheets</code></td><td>Queued leads are written once, edits are rewritten, failures back off and recover, revoked access is flagged, slow Google does not block intake, relinking another account starts a new sheet, token encryption round-trips and detects tampering.</td></tr>
+      <tr><td><code>internal/config</code></td><td>Defaults, the redirect URL following <code>PORT</code>, all errors reported together.</td></tr>
+    </tbody>
+  </table></div>
+  <p>The three tests the brief asks for live in <code>services/lead-api/api/leads_test.go</code>: invalid signature, duplicates, and existing-email update.</p>
+</section>
+
+<section id="contribute">
+  <h2>Making a change</h2>
+  <ol class="steps">
+    <li><strong>Write a failing test first</strong><p>Put it next to the code you will change. Run it and watch it fail for the reason you expect.</p></li>
+    <li><strong>Make the smallest change that passes</strong><p>Changing SQL? Edit <code>db/queries</code>, run <code>make generate</code>. Changing the schema? Add a new file in <code>db/migrations</code>.</p></li>
+    <li><strong>Run the whole suite</strong><p><code>make test</code>, then <code>gofmt -l .</code> should print nothing.</p></li>
+    <li><strong>Try it for real</strong><p><code>make up</code>, send a lead with <code>scripts/send-lead.sh</code>, look at the sheet.</p></li>
+    <li><strong>Update the docs</strong><p>New setting: add it to <code>.env.example</code> and the README. New design decision: note it in <code>docs/STACK.md</code>.</p></li>
+  </ol>
+  <p>The repo is set up for Neovim with gopls, but any editor with Go support works.</p>
+</section>
+
+<section id="trouble">
+  <h2>Troubleshooting</h2>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Symptom</th><th>Cause and fix</th></tr></thead>
+    <tbody>
+      <tr><td>Tests fail with "Cannot connect to the Docker daemon"</td><td>Docker is not running or your user can't reach it: <code>sudo systemctl enable --now docker</code> and make sure you are in the <code>docker</code> group (<code>groups</code>). With Podman: <code>systemctl --user enable --now podman.socket</code></td></tr>
+      <tr><td><code>make up</code> says port 8080 or 5432 is in use</td><td>Something else holds it. Set <code>PORT</code> or <code>DB_PORT</code> in <code>.env</code>. If you change <code>PORT</code>, update the redirect URI in Google Cloud too.</td></tr>
+      <tr><td>Every lead gets 401</td><td>The sender and <code>.env</code> use different secrets, or the clock is more than 5 minutes off. The body must be signed byte for byte as sent.</td></tr>
+      <tr><td>Google says <code>redirect_uri_mismatch</code></td><td>The URL in Google Cloud must match <code>GOOGLE_REDIRECT_URL</code> exactly, port included.</td></tr>
+      <tr><td>Google says "access blocked" or "app not verified"</td><td>The account is not a test user on the consent screen. Add it, or click through the unverified warning for your own app.</td></tr>
+      <tr><td><code>/healthz</code> shows <code>not_linked</code></td><td>Nobody has signed in yet. Open the <code>/auth/google?key=…</code> link.</td></tr>
+      <tr><td><code>/healthz</code> shows <code>reauth_required</code></td><td>Google revoked the token (7-day limit in Testing, or access removed). Sign in again with the same link; queued leads then sync.</td></tr>
+      <tr><td>Rows appear slowly during a bulk import</td><td>Google's per-minute limit. Failed writes retry with backoff and catch up.</td></tr>
+      <tr><td>A service exits right after start</td><td>Run <code>make logs</code>. A config error lists every bad variable.</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section id="next">
+  <h2>Limits and next steps</h2>
+  <p>All requirements in <code>docs/PROJECT.md</code> are done and tested. These are the known gaps, roughly in the order worth tackling:</p>
+  <ol>
+    <li><strong>Google token lifetime.</strong> The consent screen is in Testing, so the refresh token expires after 7 days. Publish the app before real use.</li>
+    <li><strong>Sheets API quota.</strong> Each lead costs two Google calls (find the row, write it). Reading column A once per batch would halve that for bulk imports.</li>
+    <li><strong>No rate limiting or request logging</strong> on the public endpoint. Add both before exposing it to the internet.</li>
+    <li><strong>Rotated refresh tokens are not saved.</strong> Google rarely rotates them for this kind of app, but saving a new one when it appears would remove the risk.</li>
+    <li><strong>Hosting.</strong> Only run locally so far. See <a href="#deploy">Deploying beyond your laptop</a>.</li>
+  </ol>
+</section>
+
+<section id="glossary">
+  <h2>Glossary</h2>
+  <dl class="glossary">
+    <dt>Lead</dt><dd>A potential customer: a person, their email, their company, and where they came from.</dd>
+    <dt>Partner</dt><dd>The outside system that sends us leads.</dd>
+    <dt>Deal stage</dt><dd>How far a lead is in the sales process.</dd>
+    <dt>Fiber</dt><dd>The Go web framework used for lead-api.</dd>
+    <dt>pgx</dt><dd>The Go driver that talks to Postgres.</dd>
+    <dt>Compose</dt><dd>A file (<code>compose.yaml</code>) that starts several containers together.</dd>
+    <dt>Healthcheck</dt><dd>A command the container runtime runs to see if a service is alive. Here it calls <code>/healthz</code>.</dd>
+    <dt>OAuth client</dt><dd>The id and secret that identify this app to Google.</dd>
+    <dt>Consent screen</dt><dd>The Google page that asks the user to allow access.</dd>
+    <dt>Scope</dt><dd>What the app is allowed to do in the Google account. Ours can only touch files it created.</dd>
+    <dt>AES-256-GCM</dt><dd>The encryption used for the stored refresh token. It also detects tampering.</dd>
+    <dt>Advisory lock</dt><dd>A named Postgres lock. Used so two services starting together don't run migrations twice.</dd>
+  </dl>
+</section>
+
+<footer>Source: <a href="https://github.com/kryst-alt/tech_task-1" target="_blank" rel="noopener">github.com/kryst-alt/tech_task-1</a>. Requirements in <code>docs/PROJECT.md</code>, design decisions in <code>docs/STACK.md</code>. Written October 2026.</footer>
+</main>
+</div>
+
+<script>
+document.querySelectorAll(".code").forEach(function (block) {
+  var btn = document.createElement("button");
+  btn.type = "button";
+  btn.textContent = "Copy";
+  btn.setAttribute("aria-label", "Copy code");
+  btn.addEventListener("click", function () {
+    var text = block.querySelector("pre").innerText.replace(/\s+#.*$/gm, "");
+    var done = function (label) { btn.textContent = label; setTimeout(function () { btn.textContent = "Copy"; }, 1500); };
+    try {
+      navigator.clipboard.writeText(text).then(function () { done("Copied"); }, function () { selectPre(); done("Press Ctrl+C"); });
+    } catch (e) { selectPre(); done("Press Ctrl+C"); }
+    function selectPre() {
+      var range = document.createRange();
+      range.selectNodeContents(block.querySelector("pre"));
+      var sel = window.getSelection();
+      sel.removeAllRanges();
+      sel.addRange(range);
+    }
+  });
+  block.appendChild(btn);
+});
+</script>
